@@ -18,6 +18,7 @@ const app = await alchemy("Homie-Website", {
 
 export const worker = await Vite("website", {
   entrypoint: "src/worker.ts",
+  compatibilityFlags: ["nodejs_compat_v2"],
   bindings: {
     DATABASE_URL: alchemy.secret(process.env.DATABASE_URL!),
   },
