@@ -4,21 +4,19 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "postinstall": "prisma generate",
-    "db:generate": "bunx prisma generate",
-    "db:migrate": "bunx prisma migrate dev",
-    "db:push": "bunx prisma db push",
-    "db:studio": "bunx prisma studio",
-    "db:pull": "bunx prisma db pull"
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio",
+    "db:seed": "bun run scripts/seed.ts"
   },
   "dependencies": {
-    "@prisma/adapter-pg": "^7.8.0",
-    "@prisma/client": "^7.8.0",
     "dotenv": "^17.4.2",
-    "pg": "^8.21.0"
+    "drizzle-orm": "^0.45.2",
+    "postgres": "^3.4.7"
   },
   "devDependencies": {
-    "@types/pg": "^8.20.0",
-    "prisma": "^7.8.0"
+    "drizzle-kit": "^0.31.4",
+    "typescript": "^5.8.3"
   }
 }

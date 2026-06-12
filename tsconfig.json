@@ -6,8 +6,10 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "noEmit": true
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true
   },
-  "include": ["**/*.ts"],
-  "exclude": ["node_modules", "generated"]
+  "include": ["db/**/*.ts", "lib/**/*.ts", "drizzle.config.ts"],
+  "exclude": ["node_modules", "Homie-Website"]
 }

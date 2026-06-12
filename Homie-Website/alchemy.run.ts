@@ -1,7 +1,14 @@
+import { config } from "dotenv";
+import { resolve, dirname } from "path";
+import { fileURLToPath } from "url";
 import alchemy from "alchemy";
 import { GitHubComment } from "alchemy/github";
 import { CloudflareStateStore } from "alchemy/state";
 import { Vite } from "alchemy/cloudflare";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+config({ path: resolve(__dirname, ".env") });
+config({ path: resolve(__dirname, "../.env") });
 
 const app = await alchemy("Homie-Website", {
   stateStore: process.env.ALCHEMY_STATE_TOKEN
@@ -11,6 +18,19 @@ const app = await alchemy("Homie-Website", {
 
 export const worker = await Vite("website", {
   entrypoint: "src/worker.ts",
+  bindings: {
+    DATABASE_URL: alchemy.secret(process.env.DATABASE_URL!),
+  },
+  wrangler: {
+    transform: (spec) => ({
+      ...spec,
+      compatibility_flags: ["nodejs_compat_v2"],
+      assets: {
+        ...spec.assets,
+        run_worker_first: ["/api/*"],
+      },
+    }),
+  },
 });
 
 console.log({
