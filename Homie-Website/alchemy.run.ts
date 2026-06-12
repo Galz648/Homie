@@ -1,7 +1,7 @@
 import alchemy from "alchemy";
 import { GitHubComment } from "alchemy/github";
 import { CloudflareStateStore } from "alchemy/state";
-import { BunSPA } from "alchemy/cloudflare";
+import { Vite } from "alchemy/cloudflare";
 
 const app = await alchemy("Homie-Website", {
   stateStore: process.env.ALCHEMY_STATE_TOKEN
@@ -9,18 +9,16 @@ const app = await alchemy("Homie-Website", {
     : undefined,
 });
 
-export const bunsite = await BunSPA("homie-site", {
+export const worker = await Vite("website", {
   entrypoint: "src/worker.ts",
-  frontend: ["src/index.html"],
 });
 
 console.log({
-  url: bunsite.url,
-  apiUrl: bunsite.apiUrl,
+  url: worker.url,
 });
 
 if (process.env.PULL_REQUEST) {
-  const previewUrl = bunsite.url;
+  const previewUrl = worker.url;
 
   await GitHubComment("pr-preview-comment", {
     owner: process.env.GITHUB_REPOSITORY_OWNER || "your-username",

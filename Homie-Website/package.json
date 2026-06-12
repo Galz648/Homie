@@ -1,23 +1,31 @@
 {
   "name": "Homie-Website",
   "version": "0.0.0",
-  "description": "Alchemy Typescript Project",
+  "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc -b",
+    "build": "vite build",
     "deploy": "alchemy deploy",
     "destroy": "alchemy destroy",
     "login": "alchemy login",
     "dev": "alchemy dev",
+    "preview": "vite preview",
     "postinstall": "vibe-rules install cursor"
   },
+  "dependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
   "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.7.4",
     "@cloudflare/workers-types": "^4.20250805.0",
-    "@types/node": "^24.0.3",
+    "@types/react": "^19.1.2",
+    "@types/react-dom": "^19.1.2",
+    "@vitejs/plugin-react": "^4.4.1",
     "alchemy": "0.93.12",
     "miniflare": "^4.20250617.3",
     "typescript": "^5.8.3",
+    "vite": "^7.1.9",
     "vibe-rules": "^0.3.91"
-  },
-  "dependencies": {}
+  }
 }

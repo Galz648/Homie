@@ -2,41 +2,38 @@
 
 [![Deployed with Alchemy](https://alchemy.run/alchemy-badge.svg)](https://alchemy.run)
 
-A simple BunSPA site with a Cloudflare Worker API, built with [Alchemy BunSPA](https://alchemy.run/providers/cloudflare/bun-spa/).
+React + Vite frontend with a Cloudflare Worker API, deployed via [Alchemy Vite](https://alchemy.run/guides/cloudflare-vitejs/).
 
 ## Setup
 
 ```bash
 bun install
+cp .env.example .env   # set ALCHEMY_PASSWORD
 ```
 
-Create `.env` with an Alchemy password:
-
-```bash
-cp .env.example .env
-```
-
-## Development
+## Local development
 
 ```bash
 bun run dev
 ```
 
-Open the URL printed in the terminal. The page shows **Hello, Homie!** and fetches a message from `/api/hello`.
+Alchemy runs Vite with HMR and proxies API routes to the worker.
 
 ## Deploy
 
 ```bash
+bun run login   # one-time Cloudflare auth
 bun run deploy
 ```
 
 ## Project structure
 
 ```
-alchemy.run.ts   # BunSPA infrastructure
-bunfig.toml      # Exposes BUN_PUBLIC_* env vars to the frontend
+alchemy.run.ts   # Vite website + worker infrastructure
+vite.config.ts   # react() + alchemy() plugins
+index.html       # Vite entry
 src/
-  index.html     # Frontend entry
-  main.ts        # Calls the worker API via getBackendUrl()
-  worker.ts      # Cloudflare Worker backend
+  main.tsx       # React entry
+  App.tsx        # UI
+  worker.ts      # Cloudflare Worker API (/api/hello)
 ```
