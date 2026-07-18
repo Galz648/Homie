@@ -1,134 +1,138 @@
 version: 1
 meta:
-  name: homie-do-k3s-droplet
+  name: homie-do-k3s-droplet-parallel
   description: >
-    DigitalOcean single-node k3s for Homie: terraform apply s-4vcpu-8gb,
-    full monitoring + Argo CD + Argo Workflows, clinic-shaped staging CI
-    with facebook-mock and a 1m staging-branch poller (pull model).
+    Parallel worktree packages for Homie DO k3s droplet: full monitoring,
+    facebook-mock staging CI, 1m staging poller (clinic pull model).
   created: 2026-07-18
 
 goal:
   statement: >
-    Provision Homie’s DigitalOcean single-node k3s droplet via
-    infra/terraform/stacks/k3s (size s-4vcpu-8gb, region fra1, name
-    homie-k3s) under DO project Homie (3ff485b0-8b3e-4f09-8798-079d56ecc498).
-    Fetch kubeconfig to ~/.kube/homie-k3s.yaml and kubectl context
-    homie-k3s-droplet. Install full monitoring (Prometheus + Grafana + Loki +
-    Alloy), Argo CD, Argo Workflows, and ci-lane. Adapt clinic’s staging CI
-    structure: base facebook-mock, staging overlay wiring, WorkflowTemplate
-    homie-ci-staging (mocks Facebook external service), and a 1-minute
-    CronJob that polls GitHub branch staging tip and submits that template
-    on SHA change. Cluster pulls GitHub (read-only PAT in-cluster); do not
-    use HOMIE_K3S_KUBECONFIG / GHA→kubectl for CI submit. Leave droplet
-    running; document teardown only. terraform apply only after explicit
-    operator approval of plan.
-  definition_of_done: >
-    (1) loop-workspace/plan.md lists packages with
-    id/deps/parallel_group/worktree/ac_command; (2) TF secrets files filled
-    out-of-band and terraform plan approved then applied; (3) droplet
-    assigned to Homie project; (4) kubectl --context homie-k3s-droplet sees
-    Ready node; (5) full monitoring + argocd + argo Homie releases have
-    Ready pods (prometheus present); (6) facebook-mock + staging overlay
-    structure present (clinic shape, Homie-named); (7) WorkflowTemplate
-    homie-ci-staging + staging-poll CronJob present; (8) poller or manual
-    tip-change proves a staging CI Workflow runs against facebook-mock;
-    (9) no GHA kubeconfig CI submit path required; (10) operator signoff;
-    (11) state.json stage=chapter_done.
+    Achieve the goal in inputs/goal.md for the repository at
+    /Users/galzafar/Documents/GitHub/homie-worktrees/homie-do-droplet by
+    decomposing work into disjoint packages. Every package forks from root
+    branch feat/homie-do-droplet into its own git worktree under
+    /Users/galzafar/Documents/GitHub/homie-worktrees, has non-overlapping
+    write_paths within its parallel_group, and a verifiable ac_command.
+    When a package's acceptance criteria pass, merge its branch into
+    feat/homie-do-droplet and remove its worktree. Produce PARALLEL-REPORT.md
+    listing each package id, write_paths, AC evidence, merge commit, and
+    worktree removal. After scaffolding merges, operator-approved terraform
+    apply + platform install + staging CI proof run on the droplet
+    (sequential; recorded in delivery notes). Droplet size s-4vcpu-8gb;
+    full monitoring; CI pull model polls staging @ 1m into homie-ci-staging
+    with facebook-mock; no GHA kubeconfig primary CI.
   context_sources:
+    - file: loop-workspace/inputs/goal.md
     - file: loop-workspace/inputs/goal-locked.md
     - file: loop-workspace/inputs/clinic-ci-pull-notes.md
     - file: loop-workspace/inputs/repo-pointers.md
     - file: README.md
+  definition_of_done: >
+    plan.md lists packages with id/deps/parallel_group/worktree/branch/
+    write_paths/ac_command; same-group write_paths are disjoint;
+    PARALLEL-REPORT.md records every package merged with AC pass evidence and
+    worktree removed; feat/homie-do-droplet contains all package changes;
+    no open worktrees remain for this loop's package ids; droplet checks
+    pass (Ready node, full platform, staging CI smoke) after operator apply;
+    state.json stage=chapter_done; no TBD placeholders.
   anti_goals:
-    - Sharing clinic’s Slack workspace or clinic DO droplet as Homie’s home
-    - Committing secrets, Slack tokens, kubeconfigs, or filled secrets.auto.tfvars
-    - GHA submit via HOMIE_K3S_KUBECONFIG as primary CI (pull model only)
-    - Lite-only monitoring as the droplet target (full stack required)
-    - Building the real Facebook scraper product (W6) beyond mock + CI shape
+    - Editing overlapping write_paths in the same parallel_group without a plan revise
+    - Force-pushing feat/homie-do-droplet
+    - Leaving worktrees around after a successful merge
+    - Declaring a package done without a passing ac_command
+    - Committing secrets or filling secrets.example with real values
+    - Sharing clinic droplet or Slack workspace
+    - Using HOMIE_K3S_KUBECONFIG as primary CI submit
     - terraform apply without explicit operator plan approval
-    - Destroying the droplet at end of loop (leave running; docs teardown only)
-    - Commit/push without explicit operator approval
+    - Destroying the droplet at end of loop
   verification:
+    - id: plan-packages
+      type: programmatic
+      description: plan.md packages have required fields
+      check:
+        - python3
+        - scripts/check-plan-packages.py
+        - loop-workspace/plan.md
+      expect: exit_zero
+    - id: disjoint-paths
+      type: programmatic
+      description: write_paths disjoint within each parallel_group
+      check:
+        - python3
+        - scripts/check-disjoint-paths.py
+        - loop-workspace/plan.md
+      expect: exit_zero
+    - id: report-schema
+      type: programmatic
+      description: PARALLEL-REPORT.md has per-package merge + AC evidence
+      check:
+        - python3
+        - scripts/check-parallel-report.py
+        - loop-workspace/PARALLEL-REPORT.md
+      expect: exit_zero
+    - id: worktrees-cleaned
+      type: programmatic
+      description: No leftover worktrees for planned package ids
+      check:
+        - python3
+        - scripts/check-worktrees-cleaned.py
+        - /Users/galzafar/Documents/GitHub/homie-worktrees/homie-do-droplet
+        - loop-workspace/plan.md
+      expect: exit_zero
     - id: plan-approved
       type: human
       prompt: >
-        Operator approved loop-workspace/plan.md: DO s-4vcpu-8gb, full
-        monitoring, clinic-shaped facebook-mock + staging CI + 1m staging
-        poller, no GHA kubeconfig CI.
-
-    - id: plan-packages
-      type: programmatic
-      description: plan.md has packages with id/deps/parallel_group/worktree/ac_command
-      check:
-        - python3
-        - looper-homie-droplet/scripts/check-plan-packages.py
-      expect: exit_zero
-
-    - id: tf-secrets-ready
-      type: human
-      prompt: >
-        Operator confirms backend.hcl, terraform.tfvars, secrets.auto.tfvars
-        (Tailscale), DIGITALOCEAN_TOKEN, and Spaces creds are ready out-of-band
-        (never committed).
-
-    - id: tf-plan-approved
-      type: human
-      prompt: >
-        Operator reviewed terraform plan for stacks/k3s and explicitly approved apply.
-
+        Operator approved plan.md packages: disjoint paths, facebook-mock +
+        staging CI + poller shape, TF/platform bring-up as sequential
+        operator steps, no GHA kubeconfig CI.
     - id: droplet-in-project
       type: programmatic
-      description: Homie-named droplet exists and is assigned to Homie DO project
+      description: Homie droplet in Homie DO project
       check:
         - python3
-        - looper-homie-droplet/scripts/check-droplet-in-project.py
+        - scripts/check-droplet-in-project.py
       expect: exit_zero
-
     - id: k3s-ready
       type: programmatic
-      description: kubectl context homie-k3s-droplet has Ready node
+      description: homie-k3s-droplet context Ready
       check:
         - python3
-        - looper-homie-droplet/scripts/check-k3s-ready.py
+        - scripts/check-k3s-ready.py
       expect: exit_zero
-
     - id: platform-up
       type: programmatic
-      description: monitoring (incl prometheus), argocd, argo have Ready pods
+      description: full monitoring + argocd + argo Ready
       check:
         - python3
-        - looper-homie-droplet/scripts/check-platform-up.py
+        - scripts/check-platform-up.py
       expect: exit_zero
-
     - id: staging-ci-tree
       type: programmatic
-      description: facebook-mock + homie-ci-staging + staging-poll artifacts present
+      description: facebook-mock + staging CI + poller in tree
       check:
         - python3
-        - looper-homie-droplet/scripts/check-staging-ci-tree.py
+        - scripts/check-staging-ci-tree.py
       expect: exit_zero
-
     - id: staging-ci-smoke
       type: programmatic
-      description: A staging-CI Workflow reached Succeeded (poll or manual submit)
+      description: staging CI Workflow Succeeded
       check:
         - python3
-        - looper-homie-droplet/scripts/check-staging-ci-smoke.py
+        - scripts/check-staging-ci-smoke.py
       expect: exit_zero
-
     - id: no-gha-kubeconfig-ci
       type: programmatic
-      description: Primary CI docs/templates assert pull model, not GHA kubeconfig
+      description: pull/poll CI asserted
       check:
         - python3
-        - looper-homie-droplet/scripts/check-no-gha-kubeconfig-ci.py
+        - scripts/check-no-gha-kubeconfig-ci.py
       expect: exit_zero
-
     - id: operator-signoff
       type: human
       prompt: >
-        Operator confirms droplet is Homie remote home: full monitoring, Argo,
-        staging poller + facebook-mock CI shape, kubeconfig local-only, droplet left running.
+        Operator confirms droplet is Homie remote home; packages merged;
+        staging poller CI shape works; droplet left running.
 
 host:
   cli: cursor-session
@@ -137,8 +141,8 @@ host:
   timeout_sec: 1800
   tools: [terminal, file]
   notes: >
-    Run in this Cursor session via RUN_IN_SESSION.md. Human-only council —
-    no cross-vendor model egress. DO apply and secret creation need operator.
+    Run via RUN_IN_SESSION.md in Cursor. Human council only — no cross-vendor
+    judge egress. Package worktrees under /Users/galzafar/Documents/GitHub/homie-worktrees.
 
 council: []
 
@@ -150,8 +154,9 @@ gates:
     verdict_source: human
     max_revisions: 3
     criteria:
-      - plan-approved
       - plan-packages
+      - disjoint-paths
+      - plan-approved
   delivery_gate:
     when: after_each_delivery
     members: []
@@ -159,14 +164,16 @@ gates:
     verdict_source: human
     max_revisions: 3
     criteria:
-      - tf-secrets-ready
-      - tf-plan-approved
+      - plan-packages
+      - disjoint-paths
+      - report-schema
+      - worktrees-cleaned
+      - staging-ci-tree
+      - no-gha-kubeconfig-ci
       - droplet-in-project
       - k3s-ready
       - platform-up
-      - staging-ci-tree
       - staging-ci-smoke
-      - no-gha-kubeconfig-ci
       - operator-signoff
 
 loop_control:
@@ -176,29 +183,30 @@ loop_control:
   no_progress:
     max_stalled_iterations: 2
     signals:
-      - same delivery gate failure repeats
-      - proposal to use HOMIE_K3S_KUBECONFIG as primary CI
-      - proposal to share clinic droplet or Slack workspace
+      - same write_paths conflict repeats
+      - worktree add fails repeatedly without changing approach
+      - PARALLEL-REPORT.md has no material change after revise
+      - force-push to root branch proposed
+      - HOMIE_K3S_KUBECONFIG proposed as primary CI
       - terraform apply without plan approval
-      - delivery artifact has no material change
     action: stop
   stop_conditions:
     - All delivery criteria pass and state.json stage=chapter_done
-    - Same blocker twice within no-progress window → stop and ask human
-    - max_iterations or wall_clock exceeded → stop with partial state
+    - max_iterations or wall_clock exceeded
+    - same blocker repeats for 2 iterations
 
 execution:
   mode: in_session
-  isolation: current_workspace
+  isolation: worktree
   side_effects:
     require_approval: true
     notes: >
-      Repo edits under infra/, looper-homie-droplet/, and CI templates are in
-      scope after plan approval. terraform apply, doctl project assign, writing
-      ~/.kube/homie-k3s.yaml, helm installs on the droplet, and creating
-      github-ci-read / Slack cluster secrets require explicit operator approval
-      at each step. Commit/push require explicit approval. Do not destroy the
-      droplet. Do not reuse clinic cloud resources.
+      Creates git worktrees and branches under
+      /Users/galzafar/Documents/GitHub/homie-worktrees from
+      feat/homie-do-droplet. Merges into feat/homie-do-droplet when AC passes;
+      removes worktrees after merge. Never force-push. terraform apply, helm
+      install, doctl assign, kubeconfig write, and github-ci-read secret
+      require explicit operator approval. Push/PR requires approval.
 
 observability:
   run_log: looper-homie-droplet/loop-workspace/run-log.md
@@ -217,12 +225,12 @@ privacy:
     - "!**/*.tfvars.example"
     - "!**/*.hcl.example"
     - "**/homie-k3s.yaml"
-    - "**/.kube/**"
 
 workspace:
   dir: ./loop-workspace
   layout:
     - plan.md
     - delivery-{n}.md
+    - PARALLEL-REPORT.md
     - state.json
     - run-log.md

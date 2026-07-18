@@ -1,5 +1,7 @@
 {
-  "stage": "boot",
+  "stage": "plan_drafted",
   "iteration": 0,
-  "notes": "Loop emitted 2026-07-18; awaiting plan.md"
+  "root_branch": "feat/homie-do-droplet",
+  "root_worktree": "/Users/galzafar/Documents/GitHub/homie-worktrees/homie-do-droplet",
+  "notes": "Parallelization template adapted; plan.md drafted; awaiting plan gate"
 }
