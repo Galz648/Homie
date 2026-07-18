@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fb-scrape-worker-env
+  labels:
+    app.kubernetes.io/name: fb-scrape-worker
+    app.kubernetes.io/part-of: homie
+data:
+  TEMPORAL_ADDRESS: scrape-temporal:7233
+  TEMPORAL_NAMESPACE: default
+  HOMIE_FB_TASK_QUEUE: homie-fb-scrape
+  HOMIE_FACEBOOK_STATE_PATH: /var/homie/facebook_state.json
+  # Spaces mode is on when Secret homie-spaces-images is present.
+  HOMIE_IMAGE_UPLOAD_MODE: spaces

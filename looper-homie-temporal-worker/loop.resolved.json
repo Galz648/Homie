@@ -1,0 +1,233 @@
+{
+  "$schema": "https://github.com/ksimback/looper/schema/loop.resolved.v1.json",
+  "compiled_at": "2026-07-18T14:39:20+00:00",
+  "council": [],
+  "council_by_id": {},
+  "criteria_by_id": {
+    "change-map": {
+      "check": [
+        "python3",
+        "scripts/check-change-map.py",
+        "loop-workspace/CHANGE-MAP.md"
+      ],
+      "description": "CHANGE-MAP.md covers image/pin/secrets/CI",
+      "expect": "exit_zero",
+      "id": "change-map",
+      "timeout_sec": 300,
+      "type": "programmatic"
+    },
+    "delivery-ok": {
+      "id": "delivery-ok",
+      "prompt": "Operator accepts staging YAML + CHANGE-MAP.md; follow-ups (build/pin, session volume) explicit.\n",
+      "type": "human"
+    },
+    "plan-approved": {
+      "id": "plan-approved",
+      "prompt": "Operator accepts plan.md packages (Temporal lane + worker YAML + image stub + change map); no worktrees; no live secrets.\n",
+      "type": "human"
+    },
+    "plan-packages": {
+      "check": [
+        "python3",
+        "scripts/check-plan-packages.py",
+        "loop-workspace/plan.md"
+      ],
+      "description": "plan.md packages have required fields",
+      "expect": "exit_zero",
+      "id": "plan-packages",
+      "timeout_sec": 300,
+      "type": "programmatic"
+    },
+    "staging-kustomize": {
+      "check": [
+        "python3",
+        "scripts/check-staging-worker-yaml.py"
+      ],
+      "description": "staging overlay builds and names Temporal + worker",
+      "expect": "exit_zero",
+      "id": "staging-kustomize",
+      "timeout_sec": 300,
+      "type": "programmatic"
+    }
+  },
+  "execution": {
+    "isolation": "current_workspace",
+    "mode": "in_session",
+    "side_effects": {
+      "duplicate_action_check": true,
+      "notes": "May write infra/k3s YAML and looper workspace docs. Do not push, apply to droplet, or create secrets unless operator asks.\n",
+      "requires_approval": true
+    }
+  },
+  "gates": {
+    "delivery_gate": {
+      "criteria": [
+        "staging-kustomize",
+        "change-map",
+        "delivery-ok"
+      ],
+      "max_revisions": 3,
+      "members": [],
+      "verdict_policy": "revise_until_clean",
+      "verdict_source": "human",
+      "when": "after_each_delivery"
+    },
+    "plan_gate": {
+      "criteria": [
+        "plan-packages",
+        "plan-approved"
+      ],
+      "max_revisions": 3,
+      "members": [],
+      "verdict_policy": "revise_until_clean",
+      "verdict_source": "human",
+      "when": "after_plan"
+    }
+  },
+  "goal": {
+    "anti_goals": [
+      "Committing live secrets or facebook_state.json",
+      "Using git worktrees for this loop",
+      "Declaring done without kustomize build including the worker",
+      "Implementing full Zot/Kaniko pin pipeline in this loop"
+    ],
+    "context_sources": [
+      {
+        "file": "loop-workspace/inputs/goal.md"
+      },
+      {
+        "file": "scrapers/facebook/src/worker.ts"
+      },
+      {
+        "file": "scrapers/facebook/src/config.ts"
+      },
+      {
+        "file": "infra/k3s/base/scrape-temporal/resources.yaml"
+      },
+      {
+        "file": "infra/k3s/overlays/staging/kustomization.yaml"
+      },
+      {
+        "file": "infra/k3s/platform/ci-lane/README.md"
+      }
+    ],
+    "definition_of_done": "Staging kustomize build includes scrape-temporal and fb-scrape-worker; secrets.example present; Dockerfile stub present; CHANGE-MAP.md has no TBDs on image/pin/secrets/CI; programmatic checks pass; state chapter_done.\n",
+    "statement": "Achieve the goal in loop-workspace/inputs/goal.md for the repository at /Users/galzafar/Documents/GitHub/Homie: declare Temporal server and the Facebook Temporal worker in infra/k3s YAML, wire staging overlay, add secrets examples and Dockerfile/image stub, and write CHANGE-MAP.md for build/pin follow-ups. Implement in the current workspace on branch infra (no git worktrees).\n",
+    "verification": [
+      {
+        "check": [
+          "python3",
+          "scripts/check-plan-packages.py",
+          "loop-workspace/plan.md"
+        ],
+        "description": "plan.md packages have required fields",
+        "expect": "exit_zero",
+        "id": "plan-packages",
+        "timeout_sec": 300,
+        "type": "programmatic"
+      },
+      {
+        "check": [
+          "python3",
+          "scripts/check-staging-worker-yaml.py"
+        ],
+        "description": "staging overlay builds and names Temporal + worker",
+        "expect": "exit_zero",
+        "id": "staging-kustomize",
+        "timeout_sec": 300,
+        "type": "programmatic"
+      },
+      {
+        "check": [
+          "python3",
+          "scripts/check-change-map.py",
+          "loop-workspace/CHANGE-MAP.md"
+        ],
+        "description": "CHANGE-MAP.md covers image/pin/secrets/CI",
+        "expect": "exit_zero",
+        "id": "change-map",
+        "timeout_sec": 300,
+        "type": "programmatic"
+      },
+      {
+        "id": "plan-approved",
+        "prompt": "Operator accepts plan.md packages (Temporal lane + worker YAML + image stub + change map); no worktrees; no live secrets.\n",
+        "type": "human"
+      },
+      {
+        "id": "delivery-ok",
+        "prompt": "Operator accepts staging YAML + CHANGE-MAP.md; follow-ups (build/pin, session volume) explicit.\n",
+        "type": "human"
+      }
+    ]
+  },
+  "host": {
+    "cli": "session",
+    "invoke": [
+      "echo",
+      "in-session-host"
+    ],
+    "model": "cursor",
+    "timeout_sec": 60
+  },
+  "loop_control": {
+    "budget": {
+      "tokens": 500000,
+      "usd": 1.0,
+      "wall_clock_min": 45
+    },
+    "human_checkpoints": [
+      "after_plan",
+      "after_delivery"
+    ],
+    "max_iterations": 10,
+    "no_progress": {
+      "action": "stop",
+      "max_stalled_iterations": 2,
+      "signals": [
+        "same blocking issue repeats",
+        "delivery artifact has no material change"
+      ]
+    },
+    "stop_conditions": [
+      "all deliveries pass their gate clean",
+      "max_iterations reached",
+      "same blocker repeats for 2 iterations",
+      "wall_clock budget exceeded"
+    ]
+  },
+  "meta": {
+    "created": "2026-07-18",
+    "description": "Add Facebook Temporal worker (+ Temporal server) to Homie k3s GitOps YAML for staging; image/CI pin contract documented; no worktrees.\n",
+    "name": "homie-temporal-worker-k3s"
+  },
+  "observability": {
+    "checkpoint_granularity": "gate",
+    "run_log": "loop-workspace/run-log.md",
+    "state_file": "loop-workspace/state.json"
+  },
+  "privacy": {
+    "egress": [],
+    "redact": [
+      ".env",
+      ".env.*",
+      "secrets/**",
+      "**/*.key",
+      "**/facebook_state.json"
+    ]
+  },
+  "source": "/Users/galzafar/Documents/GitHub/Homie/looper-homie-temporal-worker/loop.yaml",
+  "version": 1,
+  "workspace": {
+    "dir": "./loop-workspace",
+    "layout": [
+      "plan.md",
+      "delivery-{n}.md",
+      "review-{n}.md",
+      "state.json",
+      "run-log.md",
+      "loop-workspace/state.json",
+      "loop-workspace/run-log.md"
+    ]
+  }
+}

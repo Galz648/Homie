@@ -1,0 +1,131 @@
+version: 1
+meta:
+  name: homie-temporal-worker-k3s
+  description: >
+    Add Facebook Temporal worker (+ Temporal server) to Homie k3s GitOps YAML
+    for staging; image/CI pin contract documented; no worktrees.
+  created: 2026-07-18
+
+goal:
+  statement: >
+    Achieve the goal in loop-workspace/inputs/goal.md for the repository at
+    /Users/galzafar/Documents/GitHub/Homie: declare Temporal server and the
+    Facebook Temporal worker in infra/k3s YAML, wire staging overlay, add
+    secrets examples and Dockerfile/image stub, and write CHANGE-MAP.md for
+    build/pin follow-ups. Implement in the current workspace on branch infra
+    (no git worktrees).
+  context_sources:
+    - file: loop-workspace/inputs/goal.md
+    - file: scrapers/facebook/src/worker.ts
+    - file: scrapers/facebook/src/config.ts
+    - file: infra/k3s/base/scrape-temporal/resources.yaml
+    - file: infra/k3s/overlays/staging/kustomization.yaml
+    - file: infra/k3s/platform/ci-lane/README.md
+  definition_of_done: >
+    Staging kustomize build includes scrape-temporal and fb-scrape-worker;
+    secrets.example present; Dockerfile stub present; CHANGE-MAP.md has no
+    TBDs on image/pin/secrets/CI; programmatic checks pass; state chapter_done.
+  anti_goals:
+    - Committing live secrets or facebook_state.json
+    - Using git worktrees for this loop
+    - Declaring done without kustomize build including the worker
+    - Implementing full Zot/Kaniko pin pipeline in this loop
+  verification:
+    - id: plan-packages
+      type: programmatic
+      description: plan.md packages have required fields
+      check:
+        - python3
+        - scripts/check-plan-packages.py
+        - loop-workspace/plan.md
+      expect: exit_zero
+    - id: staging-kustomize
+      type: programmatic
+      description: staging overlay builds and names Temporal + worker
+      check:
+        - python3
+        - scripts/check-staging-worker-yaml.py
+      expect: exit_zero
+    - id: change-map
+      type: programmatic
+      description: CHANGE-MAP.md covers image/pin/secrets/CI
+      check:
+        - python3
+        - scripts/check-change-map.py
+        - loop-workspace/CHANGE-MAP.md
+      expect: exit_zero
+    - id: plan-approved
+      type: human
+      prompt: >
+        Operator accepts plan.md packages (Temporal lane + worker YAML +
+        image stub + change map); no worktrees; no live secrets.
+    - id: delivery-ok
+      type: human
+      prompt: >
+        Operator accepts staging YAML + CHANGE-MAP.md; follow-ups (build/pin,
+        session volume) explicit.
+
+host:
+  # In-session Cursor agent executes; no external CLI required.
+  cli: session
+  model: cursor
+  invoke: ["echo", "in-session-host"]
+  timeout_sec: 60
+
+council: []
+
+gates:
+  plan_gate:
+    when: after_plan
+    members: []
+    verdict_policy: revise_until_clean
+    verdict_source: human
+    criteria: [plan-packages, plan-approved]
+    max_revisions: 3
+  delivery_gate:
+    when: after_each_delivery
+    members: []
+    verdict_policy: revise_until_clean
+    verdict_source: human
+    criteria: [staging-kustomize, change-map, delivery-ok]
+    max_revisions: 3
+
+loop_control:
+  max_iterations: 10
+  budget:
+    usd: 1.0
+    tokens: 500000
+    wall_clock_min: 45
+  no_progress:
+    max_stalled_iterations: 2
+    signals:
+      - same blocking issue repeats
+      - delivery artifact has no material change
+    action: stop
+  human_checkpoints:
+    - after_plan
+    - after_delivery
+  stop_conditions:
+    - all deliveries pass their gate clean
+    - max_iterations reached
+    - same blocker repeats for 2 iterations
+    - wall_clock budget exceeded
+
+execution:
+  mode: in_session
+  isolation: current_workspace
+  side_effects:
+    requires_approval: true
+    duplicate_action_check: true
+    notes: >
+      May write infra/k3s YAML and looper workspace docs. Do not push,
+      apply to droplet, or create secrets unless operator asks.
+
+observability:
+  state_file: loop-workspace/state.json
+  run_log: loop-workspace/run-log.md
+  checkpoint_granularity: gate
+
+privacy:
+  egress: []
+  redact: [".env", ".env.*", "secrets/**", "**/*.key", "**/facebook_state.json"]

@@ -1,0 +1,59 @@
+# Facebook Temporal worker — placeholder image until Zot/build-pin lands.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fb-scrape-worker
+  labels:
+    app.kubernetes.io/name: fb-scrape-worker
+    app.kubernetes.io/part-of: homie
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: fb-scrape-worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: fb-scrape-worker
+        app.kubernetes.io/part-of: homie
+    spec:
+      containers:
+        - name: worker
+          image: fb-scrape-worker:local
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: fb-scrape-worker-env
+            - secretRef:
+                name: homie-database
+            - secretRef:
+                name: homie-spaces-images
+                optional: true
+          volumeMounts:
+            - name: facebook-state
+              mountPath: /var/homie
+              readOnly: true
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - "test -d /app"
+            initialDelaySeconds: 5
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              memory: 2Gi
+      volumes:
+        # Out-of-band: kubectl create secret generic facebook-session \
+        #   --from-file=facebook_state.json=... -n <lane>
+        - name: facebook-state
+          secret:
+            secretName: facebook-session
+            optional: true
+            items:
+              - key: facebook_state.json
+                path: facebook_state.json

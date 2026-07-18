@@ -1,0 +1,23 @@
+{
+  "loop": "homie-temporal-worker-k3s",
+  "status": "awaiting_delivery_signoff",
+  "stage": "delivery_gate",
+  "iteration": 1,
+  "last_gate": "delivery_gate",
+  "plan_approved": true,
+  "plan_approved_via": "user: run the loop",
+  "checks": {
+    "plan-packages": "pass",
+    "staging-kustomize": "pass",
+    "change-map": "pass"
+  },
+  "blockers": [],
+  "artifacts": [
+    "loop-workspace/plan.md",
+    "loop-workspace/delivery-1.md",
+    "loop-workspace/CHANGE-MAP.md",
+    "infra/k3s/base/fb-scrape-worker/",
+    "infra/k3s/docker/Dockerfile.fb-scrape-worker",
+    "infra/k3s/overlays/staging/kustomization.yaml"
+  ]
+}
