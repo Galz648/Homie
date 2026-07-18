@@ -18,6 +18,15 @@ const { probeFacebookAuth, scrapeFacebookGroupFeed } = proxyActivities<
   retry: { maximumAttempts: 2 },
 });
 
+/**
+ * Fire-and-forget Agent notify: await only HTTP accept (short timeout).
+ * Agent extraction + Homie callback continue asynchronously outside Temporal.
+ */
+const { notifyListingAgentFireAndForget } = proxyActivities<typeof activities>({
+  startToCloseTimeout: "30 seconds",
+  retry: { maximumAttempts: 2 },
+});
+
 export const cookiesRenewedSignal = defineSignal("cookies_renewed");
 
 export type ScrapeGroupInput = {
@@ -65,10 +74,45 @@ export async function scrapeFacebookGroup(
     workflowId: info.workflowId,
   });
 
+  // After successful scrape/upsert: FF notify CF Agent per new listing.
+  // Temporal waits only for webhook HTTP accept (30s), not Agent work.
+  let agentNotify: unknown[] = [];
+  if (report.status === "ok" && report.postsNew > 0) {
+    const listings = report.newListings ?? [];
+    if (listings.length > 0) {
+      agentNotify = await Promise.all(
+        listings.map((listing) =>
+          notifyListingAgentFireAndForget({
+            text: listing.text,
+            postId: listing.postId,
+            url: listing.url,
+            groupId: input.groupId,
+          }),
+        ),
+      );
+    } else {
+      // Fallback when DB load of new rows failed: one batch envelope.
+      agentNotify = [
+        await notifyListingAgentFireAndForget({
+          groupId: input.groupId,
+          text: [
+            `Facebook group scrape batch`,
+            `groupId=${input.groupId}`,
+            `groupUrl=${input.groupUrl}`,
+            `postsNew=${report.postsNew}`,
+            `postsSeen=${report.postsSeen}`,
+            `stopReason=${report.stopReason}`,
+          ].join("\n"),
+        }),
+      ];
+    }
+  }
+
   return {
     groupId: input.groupId,
     status: report.status,
     probe,
     report,
+    agentNotify,
   };
 }

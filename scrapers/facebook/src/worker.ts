@@ -20,6 +20,8 @@ async function main(): Promise<void> {
     "workflows.ts",
   );
 
+  // Activities module exports probeFacebookAuth, scrapeFacebookGroupFeed,
+  // and notifyListingAgentFireAndForget (CF Agent webhook FF).
   const worker = await Worker.create({
     connection,
     namespace: settings.temporalNamespace,

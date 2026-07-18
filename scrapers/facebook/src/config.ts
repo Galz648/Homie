@@ -21,6 +21,16 @@ export type Settings = {
   slackRuntimeErrorsChannelId: string | undefined;
   /** `local` | `staging` | `production` (from HOMIE_LANE or HOMIE_ENV). */
   lane: string;
+  /**
+   * CF Agent webhook URL for Temporal fire-and-forget listing notify.
+   * Optional — unset → notify activity no-ops (local e2e safe).
+   */
+  cfAgentWebhookUrl: string | undefined;
+  /**
+   * Shared secret for Temporal → Agent auth (Bearer or HMAC).
+   * From Secret mount / env — never commit real values.
+   */
+  cfAgentWebhookSecret: string | undefined;
 };
 
 /** Resolve which Slack runtime-errors channel to use for this lane. */
@@ -57,5 +67,9 @@ export function loadSettings(): Settings {
     slackBotToken: process.env.SLACK_BOT_TOKEN,
     slackRuntimeErrorsChannelId: resolveRuntimeErrorsChannelId(),
     lane,
+    cfAgentWebhookUrl:
+      process.env.HOMIE_CF_AGENT_WEBHOOK_URL?.trim() || undefined,
+    cfAgentWebhookSecret:
+      process.env.HOMIE_CF_AGENT_WEBHOOK_SECRET?.trim() || undefined,
   };
 }

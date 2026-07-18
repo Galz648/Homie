@@ -14,3 +14,9 @@ data:
   # Staging Slack channel resolution (see scrapers/facebook/README.md)
   HOMIE_LANE: staging
   HOMIE_SCRAPE_TZ: Asia/Jerusalem
+  # Optional CF Agent fire-and-forget webhook (Temporal → Agent).
+  # Leave empty / omit to no-op notify locally. Real URL per lane overlay.
+  # HOMIE_CF_AGENT_WEBHOOK_SECRET must come from a Secret — never put here.
+  HOMIE_CF_AGENT_WEBHOOK_URL: ""
+  # Auth mode for Temporal → Agent: bearer (default) or hmac
+  HOMIE_CF_AGENT_WEBHOOK_AUTH: bearer
