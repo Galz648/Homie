@@ -1,0 +1,22 @@
+{
+  "text": "דירה בתל אביב ליד דיזנגוף, כניסה 1.8, ₪7500, טלפון 054-1234567. בלי חיות.",
+  "instructions": "Extract apartment listing fields from the raw Facebook post text. Return structured price, entry/available date, contact phone, address, and unstructured conditionals/caveats as freeform text. Callback to Homie ingest with the Bearer token; do not expect Temporal to wait.",
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "postId": { "type": "string" },
+      "price": { "type": ["number", "null"] },
+      "entryDate": { "type": ["string", "null"], "description": "ISO date or null" },
+      "contactPhone": { "type": ["string", "null"] },
+      "address": { "type": ["string", "null"] },
+      "conditionals": {
+        "type": ["string", "null"],
+        "description": "Annoying caveats / freeform unstructured notes"
+      }
+    },
+    "required": ["postId"]
+  },
+  "postId": "fb-post-42",
+  "groupId": "g-tlv-rentals",
+  "url": "https://facebook.com/groups/g-tlv-rentals/posts/fb-post-42"
+}

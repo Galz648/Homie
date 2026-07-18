@@ -81,7 +81,39 @@ export const scrapeCursors = pgTable(
   ],
 );
 
+/**
+ * Cleaned / LLM-extracted apartment listings (post-Agent ingest).
+ * Upsert key: Facebook `postId` (same identity as raw_facebook_posts).
+ * Soft fields may be null when extraction misses them — treat as anomaly at the API boundary.
+ */
+export const apartmentListings = pgTable(
+  "apartment_listings",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    postId: text().notNull().unique(),
+    price: integer(),
+    currency: text().notNull().default("ILS"),
+    entryDate: timestamp({ withTimezone: true, precision: 3, mode: "date" }),
+    contactPhone: text(),
+    address: text(),
+    /** Freeform caveats / conditionals from the source post. */
+    conditionals: text(),
+    createdAt: timestamp({ withTimezone: true, precision: 3, mode: "date" })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp({ withTimezone: true, precision: 3, mode: "date" })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    index("apartment_listings_post_id_idx").on(table.postId),
+  ],
+);
+
 export type RawFacebookPost = typeof rawFacebookPosts.$inferSelect;
 export type NewRawFacebookPost = typeof rawFacebookPosts.$inferInsert;
 export type ScrapeCursor = typeof scrapeCursors.$inferSelect;
 export type NewScrapeCursor = typeof scrapeCursors.$inferInsert;
+export type ApartmentListing = typeof apartmentListings.$inferSelect;
+export type NewApartmentListing = typeof apartmentListings.$inferInsert;

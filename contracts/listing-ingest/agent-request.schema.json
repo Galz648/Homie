@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://homie.local/contracts/listing-ingest/agent-request.schema.json",
+  "title": "ListingExtractAgentRequest",
+  "description": "Temporal → Cloudflare Agent webhook body (fire-and-forget). Aligns with scrapers/facebook/src/notifyListingAgent.ts.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["text", "instructions"],
+  "properties": {
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Raw / unstructured Facebook post text"
+    },
+    "instructions": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Extraction instructions for the Agent"
+    },
+    "outputSchema": {
+      "type": "object",
+      "description": "Optional JSON Schema (or plain object) hint for structured extraction output",
+      "additionalProperties": true
+    },
+    "postId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Facebook post id for Homie ingest callback"
+    },
+    "groupId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "url": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

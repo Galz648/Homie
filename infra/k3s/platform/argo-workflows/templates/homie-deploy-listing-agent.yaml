@@ -1,0 +1,151 @@
+# Deploy Cloudflare listing-extract Agent via Wrangler (non-interactive).
+#
+# Singleton: wrangler.toml name = "homie-listing-extract" — each deploy
+# replaces that one Worker in place (no second app). Mutex below prevents
+# overlapping deploys. Do not pass --env / alternate Worker names.
+#
+# Requires Secret in namespace argo:
+#   kubectl -n argo create secret generic cloudflare-api-token \
+#     --from-literal=CLOUDFLARE_API_TOKEN=...
+# See examples/cloudflare-api-token.secret.example.yaml
+#
+# Manual run:
+#   kubectl -n argo create -f examples/ci-deploy-listing-agent.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: homie-deploy-listing-agent
+  namespace: argo
+  labels:
+    app.kubernetes.io/part-of: homie
+    homie.io/smoke: deploy-listing-agent
+    homie.io/component: cf-agent
+spec:
+  entrypoint: main
+  serviceAccountName: argo-workflow
+  activeDeadlineSeconds: 1800
+  # Only one listing-extract deploy runs at a time (queue others).
+  synchronization:
+    mutex:
+      name: homie-listing-extract-deploy
+  ttlStrategy:
+    secondsAfterSuccess: 7200
+    secondsAfterFailure: 14400
+  arguments:
+    parameters:
+      - name: git-branch
+        value: staging
+      - name: git-repo
+        value: https://github.com/Galz648/Homie.git
+  volumeClaimTemplates:
+    - metadata:
+        name: work
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 4Gi
+  templates:
+    - name: main
+      inputs:
+        parameters:
+          - name: git-branch
+          - name: git-repo
+      steps:
+        - - name: clone
+            template: clone
+            arguments:
+              parameters:
+                - name: git-branch
+                  value: "{{inputs.parameters.git-branch}}"
+                - name: git-repo
+                  value: "{{inputs.parameters.git-repo}}"
+        - - name: wrangler-deploy
+            template: wrangler-deploy
+            arguments:
+              parameters:
+                - name: short-sha
+                  value: "{{steps.clone.outputs.parameters.short-sha}}"
+
+    - name: clone
+      inputs:
+        parameters:
+          - name: git-branch
+          - name: git-repo
+      outputs:
+        parameters:
+          - name: short-sha
+            valueFrom:
+              path: /work/short-sha
+      container:
+        image: alpine/git:2.47.2
+        workingDir: /work
+        command: [sh, -c]
+        args:
+          - |
+            set -euo pipefail
+            apk add --no-cache ca-certificates >/dev/null
+            BRANCH="{{inputs.parameters.git-branch}}"
+            REPO="{{inputs.parameters.git-repo}}"
+            rm -rf repo
+            git clone --depth 1 --branch "$BRANCH" "$REPO" repo
+            cd repo
+            FULL=$(git rev-parse HEAD)
+            SHORT=$(printf '%s' "$FULL" | cut -c1-7)
+            printf '%s' "$SHORT" > /work/short-sha
+            echo "cloned branch=$BRANCH short-sha=$SHORT"
+            test -f agents/listing-extract/wrangler.toml
+            test -f agents/listing-extract/package.json
+            grep -q 'ListingExtractAgent' agents/listing-extract/wrangler.toml
+            grep -q 'new_sqlite_classes' agents/listing-extract/wrangler.toml
+        volumeMounts:
+          - name: work
+            mountPath: /work
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            memory: 512Mi
+
+    - name: wrangler-deploy
+      inputs:
+        parameters:
+          - name: short-sha
+      container:
+        image: oven/bun:1.2.19-alpine
+        workingDir: /work/repo/agents/listing-extract
+        env:
+          - name: CLOUDFLARE_API_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: cloudflare-api-token
+                key: CLOUDFLARE_API_TOKEN
+          - name: CI
+            value: "true"
+        command: [sh, -c]
+        args:
+          - |
+            set -euo pipefail
+            SHORT="{{inputs.parameters.short-sha}}"
+            echo "deploying listing-extract Agent @ ${SHORT}"
+            if [[ -z "${CLOUDFLARE_API_TOKEN:-}" ]]; then
+              echo "CLOUDFLARE_API_TOKEN missing — create Secret cloudflare-api-token in argo" >&2
+              exit 1
+            fi
+            # ripgrep not in bun image; Agent markers already checked at clone
+            bun install --frozen-lockfile || bun install
+            # Upsert the single Worker named in wrangler.toml (never --env / --name).
+            bunx wrangler deploy
+            echo "ok: wrangler deploy replaced homie-listing-extract @ ${SHORT}"
+            echo "Set scrape worker HOMIE_CF_AGENT_WEBHOOK_URL to https://homie-listing-extract.<subdomain>.workers.dev/webhooks"
+        volumeMounts:
+          - name: work
+            mountPath: /work
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: "1"
+            memory: 2Gi

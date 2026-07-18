@@ -26,6 +26,7 @@ WorkflowTemplate homie-ci-staging
   (ephemeral Postgres + facebook-mock → bun test:e2e-mocks)
 
 Optional: homie-build-images → Zot → pin commit → Argo Sync
+Optional: homie-deploy-listing-agent → wrangler deploy (CF Agents SDK)
 Optional: homie-trigger-scrape → Temporal scrapeFacebookGroup
 ```
 
@@ -81,6 +82,7 @@ kubectl -n argo port-forward svc/homie-argo-workflows-server 2746:2746
 | `homie-ci-smoke` | Minimal echo smoke |
 | `homie-ci-staging` | Clone staging → drizzle migrate → assert scrape tables → mock e2e |
 | `homie-build-images` | Kaniko → Zot `homie/fb-scrape-worker:staging-<sha>` (+ optional pin step) |
+| `homie-deploy-listing-agent` | Clone → `bunx wrangler deploy` for `agents/listing-extract` (Agents SDK) |
 | `homie-trigger-scrape` | Start `scrapeFacebookGroup` via Temporal pod exec |
 
 ```bash
@@ -88,5 +90,8 @@ kubectl -n argo apply -f templates/
 kubectl -n argo apply -f examples/ci-staging-poll-rbac.yaml
 kubectl -n argo apply -f examples/ci-staging-poll-cronjob.yaml
 # Manual build:  kubectl -n argo create -f examples/ci-build-images.yaml
+# Manual CF Agent deploy (needs Secret cloudflare-api-token):
+#   KUBECONFIG=~/.kube/homie-k3s.yaml ./scripts/apply-cloudflare-api-token-secret.sh
+#   kubectl -n argo create -f examples/ci-deploy-listing-agent.yaml
 # Manual scrape: kubectl -n argo create -f examples/ci-trigger-scrape.yaml
 ```

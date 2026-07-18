@@ -1,0 +1,55 @@
+# Homie public auth-backed listing ingest API.
+# Placeholder image until Zot/build-pin lands.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: homie-ingest
+  labels:
+    app.kubernetes.io/name: homie-ingest
+    app.kubernetes.io/part-of: homie
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: homie-ingest
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: homie-ingest
+        app.kubernetes.io/part-of: homie
+    spec:
+      containers:
+        - name: ingest
+          image: homie-ingest:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: homie-ingest-env
+            - secretRef:
+                name: homie-ingest
+            - secretRef:
+                name: homie-database
+            - secretRef:
+                name: homie-slack
+                optional: true
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 512Mi

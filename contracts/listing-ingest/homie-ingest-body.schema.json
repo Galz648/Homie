@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://homie.local/contracts/listing-ingest/homie-ingest-body.schema.json",
+  "title": "HomieListingIngestBody",
+  "description": "Agent → Homie POST /ingest/listings body. Aligns with services/homie-ingest ListingIngestBody.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["postId"],
+  "properties": {
+    "postId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable Facebook post id (upsert key)"
+    },
+    "price": {
+      "type": ["integer", "null"],
+      "description": "Rent / asking price in currency units"
+    },
+    "currency": {
+      "type": ["string", "null"],
+      "description": "ISO-ish currency code; Homie defaults to ILS when omitted"
+    },
+    "entryDate": {
+      "type": ["string", "null"],
+      "description": "Available / entry date (ISO-8601 string or null)"
+    },
+    "contactPhone": {
+      "type": ["string", "null"]
+    },
+    "address": {
+      "type": ["string", "null"]
+    },
+    "conditionals": {
+      "type": ["string", "null"],
+      "description": "Annoying caveats / unstructured freeform notes"
+    }
+  }
+}

@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: homie-ingest-env
+  labels:
+    app.kubernetes.io/name: homie-ingest
+    app.kubernetes.io/part-of: homie
+data:
+  PORT: "8080"
+  HOMIE_LANE: staging
+  # Channel for successful apartment_listings writes (set per overlay/lane).
+  HOMIE_INGEST_SLACK_CHANNEL_ID: ""
+  # Runtime-error channel IDs come from Secret homie-slack (optional envFrom):
+  #   SLACK_BOT_TOKEN
+  #   SLACK_RUNTIME_ERRORS_CHANNEL_ID / SLACK_STAGING_RUNTIME_ERRORS_CHANNEL_ID
+  # Success-notify Slack failures log JSON to stderr (Loki) and alert that channel
+  # without failing the ingest HTTP response.

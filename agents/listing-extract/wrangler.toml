@@ -1,0 +1,52 @@
+# Cloudflare Agent: listing-extract
+#
+# Singleton deploy identity
+# -------------------------
+# Wrangler has no `replace = true` flag. The top-level `name` IS the Worker
+# resource id in the account. `wrangler deploy` upserts that one Worker and
+# shifts 100% traffic to the new script (in-place replace, not a second app).
+#
+# Rules (enforced by scripts/check-listing-ingest-contract.py):
+#   - Keep `name = "homie-listing-extract"` forever for this Agent.
+#   - Do NOT add `[env.*]` blocks with a different `name` (that creates a
+#     second Worker). Prefer one Worker for Homie staging until a deliberate
+#     prod split.
+#   - Do NOT rename in this file without deleting/migrating the old Worker
+#     in the Cloudflare dashboard first — rename = orphan + new Worker.
+#   - Keep Durable Object `class_name` stable across deploys so DO/SQLite
+#     state is not forked.
+#
+# Secrets (wrangler secret put — never commit):
+#   HOMIE_CF_AGENT_WEBHOOK_SECRET  — Temporal → Agent
+#   HOMIE_INGEST_BEARER_TOKEN      — Agent → Homie ingest
+#   HOMIE_INGEST_URL               — Homie ingest base URL
+#
+# Vars:
+#   HOMIE_CF_AGENT_WEBHOOK_AUTH    — bearer (default) | hmac
+#
+# Hard rule: Agent never binds to Homie Postgres. Homie owns the database.
+
+# Immutable Cloudflare resource id — deploy replaces this Worker in place.
+name = "homie-listing-extract"
+main = "src/index.ts"
+compatibility_date = "2026-07-18"
+compatibility_flags = ["nodejs_compat"]
+
+# workers.dev subdomain for this single Worker (…/homie-listing-extract).
+workers_dev = true
+# No per-version Preview URLs — avoids extra ephemeral deployments.
+preview_urls = false
+
+[vars]
+HOMIE_CF_AGENT_WEBHOOK_AUTH = "bearer"
+
+[observability]
+enabled = true
+
+[[durable_objects.bindings]]
+name = "ListingExtractAgent"
+class_name = "ListingExtractAgent"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["ListingExtractAgent"]

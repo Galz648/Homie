@@ -4,7 +4,16 @@ import {
   probeFacebookSession,
   type AuthProbeResult,
 } from "./authProbe.js";
+import {
+  DEFAULT_LISTING_EXTRACT_INSTRUCTIONS,
+  DEFAULT_LISTING_OUTPUT_SCHEMA,
+  notifyListingAgent,
+  type NotifyListingAgentDeps,
+  type NotifyListingAgentPayload,
+  type NotifyListingAgentResult,
+} from "./notifyListingAgent.js";
 import { runScrapePipeline } from "./pipeline/runScrape.js";
+import { createSql } from "./pipeline/cursor.js";
 import type { RunReport } from "./pipeline/types.js";
 import {
   formatAuthFailureMessage,
@@ -14,6 +23,12 @@ import {
   shouldAlertScrape,
   type RuntimeErrorMessage,
 } from "./slackNotify.js";
+
+export type ListingForAgent = {
+  postId: string;
+  text: string;
+  url: string;
+};
 
 const log = {
   info: (msg: string) => {
@@ -127,11 +142,14 @@ export type ScrapeFacebookGroupFeedDeps = {
  * Spaces CDN URLs land in `raw_facebook_posts.images`. Local mocks keep mode=`noop`.
  *
  * Non-ok reports (crash, empty_suspect, …) post to `#homie-runtime-errors`.
+ *
+ * On ok + postsNew > 0, also returns `newListings` (recent raw rows) so the
+ * workflow can fire-and-forget notify the CF Agent per listing.
  */
 export async function scrapeFacebookGroupFeed(
   input: ScrapeGroupActivityInput,
   deps: ScrapeFacebookGroupFeedDeps = {},
-): Promise<RunReport & { slackNotified: boolean }> {
+): Promise<RunReport & { slackNotified: boolean; newListings: ListingForAgent[] }> {
   const settings = deps.settings ?? loadSettings();
   const run = deps.run ?? runScrapePipeline;
   const postError = deps.postError ?? postRuntimeError;
@@ -171,5 +189,101 @@ export async function scrapeFacebookGroupFeed(
     }
   }
 
-  return { ...report, slackNotified };
+  let newListings: ListingForAgent[] = [];
+  if (report.status === "ok" && report.postsNew > 0) {
+    try {
+      const sql = createSql();
+      try {
+        const rows = await sql<
+          { postId: string; text: string; url: string }[]
+        >`
+          SELECT "postId", description AS text, url
+          FROM raw_facebook_posts
+          WHERE "groupId" = ${input.groupId}
+          ORDER BY "updatedAt" DESC
+          LIMIT ${report.postsNew}
+        `;
+        newListings = rows.map((r) => ({
+          postId: r.postId,
+          text: r.text,
+          url: r.url,
+        }));
+      } finally {
+        await sql.end({ timeout: 5 });
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      log.error(`failed loading newListings for agent notify: ${msg}`);
+    }
+  }
+
+  return { ...report, slackNotified, newListings };
+}
+
+export type NotifyListingAgentFireAndForgetInput = NotifyListingAgentPayload & {
+  /** When true, omit default outputSchema (Agent uses instructions only). */
+  omitOutputSchema?: boolean;
+};
+
+export type NotifyListingAgentFireAndForgetDeps = NotifyListingAgentDeps & {
+  settings?: Settings;
+};
+
+/**
+ * Fire-and-forget activity: POST raw listing text to the CF Agent webhook and
+ * return after HTTP accept (2xx). Does not wait for Agent extraction or Homie
+ * ingest callback.
+ *
+ * Choice: one activity invocation per listing (workflow fans out after a
+ * successful scrape with postsNew > 0). Short Temporal startToCloseTimeout
+ * covers only the HTTP accept — Agent processing continues async.
+ *
+ * No-ops when HOMIE_CF_AGENT_WEBHOOK_URL is unset (local e2e safe).
+ */
+export async function notifyListingAgentFireAndForget(
+  input: NotifyListingAgentFireAndForgetInput,
+  deps: NotifyListingAgentFireAndForgetDeps = {},
+): Promise<NotifyListingAgentResult> {
+  const settings = deps.settings ?? loadSettings();
+  const payload: NotifyListingAgentPayload = {
+    text: input.text,
+    instructions: input.instructions ?? DEFAULT_LISTING_EXTRACT_INSTRUCTIONS,
+    postId: input.postId,
+    groupId: input.groupId,
+    url: input.url,
+    ...(input.omitOutputSchema
+      ? {}
+      : {
+          outputSchema: input.outputSchema ?? DEFAULT_LISTING_OUTPUT_SCHEMA,
+        }),
+  };
+
+  const result = await notifyListingAgent(payload, {
+    fetchFn: deps.fetchFn,
+    config:
+      deps.config ??
+      ({
+        webhookUrl: settings.cfAgentWebhookUrl,
+        webhookSecret: settings.cfAgentWebhookSecret,
+        authMode:
+          (process.env.HOMIE_CF_AGENT_WEBHOOK_AUTH ?? "bearer").toLowerCase() ===
+          "hmac"
+            ? "hmac"
+            : "bearer",
+      } as const),
+  });
+
+  if (result.ok && result.skipped) {
+    log.info(`notifyListingAgent skipped: ${result.reason}`);
+  } else if (result.ok) {
+    log.info(
+      `notifyListingAgent accepted status=${result.status} group=${input.groupId ?? "-"} post=${input.postId ?? "-"}`,
+    );
+  } else {
+    log.error(
+      `notifyListingAgent rejected status=${result.status} detail=${result.detail}`,
+    );
+  }
+
+  return result;
 }

@@ -97,7 +97,8 @@ bun run check:postgres
 bun run check:temporal
 bun run check:session-ops
 bun run check:pipeline
-bun run check:e2e-mocks          # automated CI gate (no live Facebook)
+bun run check:e2e-mocks          # automated CI gate (no live Facebook);
+                                 # also runs listing-extract + homie-ingest mocks
 bun run check:image-fetch-online # manual live CDN auth download only
 bun run preprod:e2e-online       # manual live e2e — before prod (see docs/workstreams.md W7)
 bun run smoke:spaces-upload      # manual Spaces one-image upload
