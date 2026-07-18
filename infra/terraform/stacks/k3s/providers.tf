@@ -31,5 +31,8 @@ terraform {
 }
 
 provider "digitalocean" {
-  # Reads DIGITALOCEAN_TOKEN from the environment automatically.
+  # DIGITALOCEAN_TOKEN from the environment.
+  # Spaces bucket resources also need Spaces API keys:
+  #   SPACES_ACCESS_KEY_ID / SPACES_SECRET_ACCESS_KEY
+  # (same keys as AWS_* for the S3-compatible Spaces endpoint).
 }
