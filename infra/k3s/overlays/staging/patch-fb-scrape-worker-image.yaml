@@ -8,4 +8,4 @@ spec:
       containers:
         - name: worker
           # Keep in sync with kustomization.yaml images[].newTag (GitOps pin).
-          image: zot.local:5000/homie/fb-scrape-worker:staging-8233fdf
+          image: zot.local:5000/homie/fb-scrape-worker:staging-989c1c4
