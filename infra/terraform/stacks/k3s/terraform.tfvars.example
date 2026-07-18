@@ -10,6 +10,20 @@ ssh_public_key_path         = "~/.ssh/id_ed25519.pub"
 tags                        = ["k3s", "homie"]
 data_volume_size_gb = 1
 
+# Listing photo Spaces buckets (object storage — not block volumes).
+# Override names if the defaults are taken; keys stay in secrets / ~/.config/homie.
+spaces_images_enabled = true
+# spaces_images_region = "fra1"   # default: same as region
+# spaces_images_bucket_staging    = "homie-k3s-images-staging"
+# spaces_images_bucket_production = "homie-k3s-images-production"
+# After apply, set lane env:
+#   HOMIE_IMAGE_UPLOAD_MODE=spaces
+#   HOMIE_IMAGES_BUCKET=<terraform output spaces_images.staging.name>
+#   HOMIE_IMAGES_BASE_URL=https://<bucket>.<region>.cdn.digitaloceanspaces.com
+#   HOMIE_SPACES_ENDPOINT=https://<region>.digitaloceanspaces.com
+#   HOMIE_SPACES_REGION=<region>
+#   HOMIE_SPACES_KEY / HOMIE_SPACES_SECRET  (Spaces access key — never commit)
+
 # Prefer Tailscale (secrets.auto.tfvars). Leave admin_cidrs empty so 22/6443
 # are not on the public internet. Set a /32 only for emergency break-glass.
 admin_cidrs = []

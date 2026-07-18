@@ -64,7 +64,7 @@ Activity `scrapeFacebookGroupFeed` → upsert → `persistListingImages`.
 bun run smoke:spaces-upload
 ```
 
-See `infra/terraform/stacks/k3s/` (Spaces buckets on `feat/homie-spaces-images`) for staging/production TF.
+See `infra/terraform/stacks/k3s/README.md` for staging/production bucket TF. Apply lane Secret with `scripts/apply-homie-spaces-secret.sh`.
 
 ## AC runners (Bun / TypeScript)
 

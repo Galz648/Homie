@@ -103,7 +103,7 @@ Depends on W3.
 |------|-------|--------|
 | W4.1 API runtime | Container or documented host process; env `DATABASE_URL` | later |
 | W4.2 DB in/alongside cluster | In-cluster Postgres **or** Supabase remote (prod); migrate + seed | later |
-| W4.2b Raw-post image Spaces | DO Spaces buckets for scraped FB photos (staging + production). Temporal activity `scrapeFacebookGroupFeed` uploads when `HOMIE_IMAGE_UPLOAD_MODE=spaces` (env from `~/.config/homie/spaces.env` or lane Secret); persist Spaces URLs in `raw_facebook_posts.images`. Env: `HOMIE_IMAGES_BUCKET`, `HOMIE_IMAGES_BASE_URL`, `HOMIE_SPACES_ENDPOINT`, `HOMIE_SPACES_REGION`, `HOMIE_SPACES_KEY` / `HOMIE_SPACES_SECRET`. Local mocks stay `noop`. Smoke: `bun run smoke:spaces-upload`. Staging Slack: `#homie-runtime-errors-staging` (`C0BJ6AMH2LE`, env `SLACK_STAGING_RUNTIME_ERRORS_CHANNEL_ID`) — separate from prod. | next |
+| W4.2b Raw-post image Spaces | Two Spaces buckets + Homie-only key `homie-images`; k8s Secret `homie-spaces-images` per lane (`apply-homie-spaces-secret.sh`). Temporal activity uploads when `HOMIE_IMAGE_UPLOAD_MODE=spaces`; persist URLs in `raw_facebook_posts.images`. Local e2e stays `noop`. Smoke: `bun run smoke:spaces-upload`. Staging Slack: `#homie-runtime-errors-staging` (`C0BJ6AMH2LE`, `SLACK_STAGING_RUNTIME_ERRORS_CHANNEL_ID`). | **done** (wire worker envFrom when scrape deploy lands) |
 | W4.3 Kustomize base | `infra/k3s/base/` Deployments/Services when ready | later |
 | W4.4 Local overlay | `overlays/local` wires images + secrets examples | later |
 
