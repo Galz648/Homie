@@ -17,9 +17,11 @@
     "check:e2e-mocks": "tsx scripts/checkE2eMocks.ts",
     "check:e2e-online": "tsx scripts/checkE2eOnline.ts",
     "preprod:e2e-online": "tsx scripts/runE2eOnline.ts",
+    "smoke:spaces-upload": "tsx scripts/smokeSpacesUpload.ts",
     "show:cursors": "tsx scripts/showScrapeCursors.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.787.0",
     "@temporalio/activity": "^1.11.7",
     "@temporalio/client": "^1.11.7",
     "@temporalio/worker": "^1.11.7",
