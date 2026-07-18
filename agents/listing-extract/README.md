@@ -40,6 +40,21 @@ wrangler deploy
 # Temporal appends /:postId
 ```
 
+## Local mocked e2e
+
+No wrangler / live CF needed — pure auth + stub extract + ingest fetch:
+
+```bash
+cd agents/listing-extract
+bun run check:e2e-mocks
+```
+
+Full scrape → notify → agent → ingest mock gate (Postgres required for scrape):
+
+```bash
+cd scrapers/facebook && bun run check:e2e-mocks
+```
+
 ## Contract
 
 Request / response shapes: `contracts/listing-ingest/`.  
