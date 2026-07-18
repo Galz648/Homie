@@ -43,10 +43,11 @@ if [[ -n "${GRAFANA_ADMIN_PASSWORD:-}" ]]; then
 fi
 
 echo "==> helm upgrade --install ${RELEASE} -n ${NS}"
+# macOS bash 3 + set -u: empty array expand is unbound
 helm upgrade --install "${RELEASE}" "${ROOT}" \
   --namespace "${NS}" \
   --values "${VALUES}" \
-  "${HELM_EXTRA[@]}" \
+  ${HELM_EXTRA[@]+"${HELM_EXTRA[@]}"} \
   "$@"
 
 echo "==> done"

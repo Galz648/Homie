@@ -3,4 +3,4 @@ kind: Kustomization
 namespace: homie-staging
 resources:
   - namespace.yaml
-  # App workloads land in ../../base later — platform-only for now.
+  - ../../base/facebook-mock

@@ -1,0 +1,236 @@
+version: 1
+meta:
+  name: homie-do-k3s-droplet-parallel
+  description: >
+    Parallel worktree packages for Homie DO k3s droplet: full monitoring,
+    facebook-mock staging CI, 1m staging poller (clinic pull model).
+  created: 2026-07-18
+
+goal:
+  statement: >
+    Achieve the goal in inputs/goal.md for the repository at
+    /Users/galzafar/Documents/GitHub/homie-worktrees/homie-do-droplet by
+    decomposing work into disjoint packages. Every package forks from root
+    branch feat/homie-do-droplet into its own git worktree under
+    /Users/galzafar/Documents/GitHub/homie-worktrees, has non-overlapping
+    write_paths within its parallel_group, and a verifiable ac_command.
+    When a package's acceptance criteria pass, merge its branch into
+    feat/homie-do-droplet and remove its worktree. Produce PARALLEL-REPORT.md
+    listing each package id, write_paths, AC evidence, merge commit, and
+    worktree removal. After scaffolding merges, operator-approved terraform
+    apply + platform install + staging CI proof run on the droplet
+    (sequential; recorded in delivery notes). Droplet size s-4vcpu-8gb;
+    full monitoring; CI pull model polls staging @ 1m into homie-ci-staging
+    with facebook-mock; no GHA kubeconfig primary CI.
+  context_sources:
+    - file: loop-workspace/inputs/goal.md
+    - file: loop-workspace/inputs/goal-locked.md
+    - file: loop-workspace/inputs/clinic-ci-pull-notes.md
+    - file: loop-workspace/inputs/repo-pointers.md
+    - file: README.md
+  definition_of_done: >
+    plan.md lists packages with id/deps/parallel_group/worktree/branch/
+    write_paths/ac_command; same-group write_paths are disjoint;
+    PARALLEL-REPORT.md records every package merged with AC pass evidence and
+    worktree removed; feat/homie-do-droplet contains all package changes;
+    no open worktrees remain for this loop's package ids; droplet checks
+    pass (Ready node, full platform, staging CI smoke) after operator apply;
+    state.json stage=chapter_done; no TBD placeholders.
+  anti_goals:
+    - Editing overlapping write_paths in the same parallel_group without a plan revise
+    - Force-pushing feat/homie-do-droplet
+    - Leaving worktrees around after a successful merge
+    - Declaring a package done without a passing ac_command
+    - Committing secrets or filling secrets.example with real values
+    - Sharing clinic droplet or Slack workspace
+    - Using HOMIE_K3S_KUBECONFIG as primary CI submit
+    - terraform apply without explicit operator plan approval
+    - Destroying the droplet at end of loop
+  verification:
+    - id: plan-packages
+      type: programmatic
+      description: plan.md packages have required fields
+      check:
+        - python3
+        - scripts/check-plan-packages.py
+        - loop-workspace/plan.md
+      expect: exit_zero
+    - id: disjoint-paths
+      type: programmatic
+      description: write_paths disjoint within each parallel_group
+      check:
+        - python3
+        - scripts/check-disjoint-paths.py
+        - loop-workspace/plan.md
+      expect: exit_zero
+    - id: report-schema
+      type: programmatic
+      description: PARALLEL-REPORT.md has per-package merge + AC evidence
+      check:
+        - python3
+        - scripts/check-parallel-report.py
+        - loop-workspace/PARALLEL-REPORT.md
+      expect: exit_zero
+    - id: worktrees-cleaned
+      type: programmatic
+      description: No leftover worktrees for planned package ids
+      check:
+        - python3
+        - scripts/check-worktrees-cleaned.py
+        - /Users/galzafar/Documents/GitHub/homie-worktrees/homie-do-droplet
+        - loop-workspace/plan.md
+      expect: exit_zero
+    - id: plan-approved
+      type: human
+      prompt: >
+        Operator approved plan.md packages: disjoint paths, facebook-mock +
+        staging CI + poller shape, TF/platform bring-up as sequential
+        operator steps, no GHA kubeconfig CI.
+    - id: droplet-in-project
+      type: programmatic
+      description: Homie droplet in Homie DO project
+      check:
+        - python3
+        - scripts/check-droplet-in-project.py
+      expect: exit_zero
+    - id: k3s-ready
+      type: programmatic
+      description: homie-k3s-droplet context Ready
+      check:
+        - python3
+        - scripts/check-k3s-ready.py
+      expect: exit_zero
+    - id: platform-up
+      type: programmatic
+      description: full monitoring + argocd + argo Ready
+      check:
+        - python3
+        - scripts/check-platform-up.py
+      expect: exit_zero
+    - id: staging-ci-tree
+      type: programmatic
+      description: facebook-mock + staging CI + poller in tree
+      check:
+        - python3
+        - scripts/check-staging-ci-tree.py
+      expect: exit_zero
+    - id: staging-ci-smoke
+      type: programmatic
+      description: staging CI Workflow Succeeded
+      check:
+        - python3
+        - scripts/check-staging-ci-smoke.py
+      expect: exit_zero
+    - id: no-gha-kubeconfig-ci
+      type: programmatic
+      description: pull/poll CI asserted
+      check:
+        - python3
+        - scripts/check-no-gha-kubeconfig-ci.py
+      expect: exit_zero
+    - id: operator-signoff
+      type: human
+      prompt: >
+        Operator confirms droplet is Homie remote home; packages merged;
+        staging poller CI shape works; droplet left running.
+
+host:
+  cli: cursor-session
+  model: in-session
+  invoke: ["cursor-agent"]
+  timeout_sec: 1800
+  tools: [terminal, file]
+  notes: >
+    Run via RUN_IN_SESSION.md in Cursor. Human council only — no cross-vendor
+    judge egress. Package worktrees under /Users/galzafar/Documents/GitHub/homie-worktrees.
+
+council: []
+
+gates:
+  plan_gate:
+    when: after_plan
+    members: []
+    verdict_policy: revise_until_clean
+    verdict_source: human
+    max_revisions: 3
+    criteria:
+      - plan-packages
+      - disjoint-paths
+      - plan-approved
+  delivery_gate:
+    when: after_each_delivery
+    members: []
+    verdict_policy: revise_until_clean
+    verdict_source: human
+    max_revisions: 3
+    criteria:
+      - plan-packages
+      - disjoint-paths
+      - report-schema
+      - worktrees-cleaned
+      - staging-ci-tree
+      - no-gha-kubeconfig-ci
+      - droplet-in-project
+      - k3s-ready
+      - platform-up
+      - staging-ci-smoke
+      - operator-signoff
+
+loop_control:
+  max_iterations: 20
+  budget:
+    wall_clock_min: 360
+  no_progress:
+    max_stalled_iterations: 2
+    signals:
+      - same write_paths conflict repeats
+      - worktree add fails repeatedly without changing approach
+      - PARALLEL-REPORT.md has no material change after revise
+      - force-push to root branch proposed
+      - HOMIE_K3S_KUBECONFIG proposed as primary CI
+      - terraform apply without plan approval
+    action: stop
+  stop_conditions:
+    - All delivery criteria pass and state.json stage=chapter_done
+    - max_iterations or wall_clock exceeded
+    - same blocker repeats for 2 iterations
+
+execution:
+  mode: in_session
+  isolation: worktree
+  side_effects:
+    require_approval: true
+    notes: >
+      Creates git worktrees and branches under
+      /Users/galzafar/Documents/GitHub/homie-worktrees from
+      feat/homie-do-droplet. Merges into feat/homie-do-droplet when AC passes;
+      removes worktrees after merge. Never force-push. terraform apply, helm
+      install, doctl assign, kubeconfig write, and github-ci-read secret
+      require explicit operator approval. Push/PR requires approval.
+
+observability:
+  run_log: looper-homie-droplet/loop-workspace/run-log.md
+  state_path: looper-homie-droplet/loop-workspace/state.json
+
+privacy:
+  redaction_globs:
+    - .env
+    - .env.*
+    - secrets/**
+    - "**/*.key"
+    - "**/secrets.auto.tfvars"
+    - "**/backend.hcl"
+    - "**/*secret*.yaml"
+    - "!**/*.example.yaml"
+    - "!**/*.tfvars.example"
+    - "!**/*.hcl.example"
+    - "**/homie-k3s.yaml"
+
+workspace:
+  dir: ./loop-workspace
+  layout:
+    - plan.md
+    - delivery-{n}.md
+    - PARALLEL-REPORT.md
+    - state.json
+    - run-log.md
