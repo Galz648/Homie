@@ -8,7 +8,7 @@ import { ensureScrapeSchedules } from "./ensureSchedules.js";
 async function main(): Promise<void> {
   const settings = loadSettings();
 
-  // Idempotent: create/update hourly schedules (09:00–21:00 Asia/Jerusalem).
+  // Idempotent: create/update schedules (~every 4h, 09–21 Asia/Jerusalem).
   await ensureScrapeSchedules(settings);
 
   const connection = await NativeConnection.connect({

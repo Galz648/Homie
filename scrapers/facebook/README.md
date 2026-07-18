@@ -26,7 +26,7 @@ group:
 
 | | |
 |--|--|
-| Cadence | Hourly at `:00` |
+| Cadence | **~Every 4 hours** at `:00` (**09 / 13 / 17 / 21**) |
 | Window | **09:00–21:00** `Asia/Jerusalem` (no runs **22:00–08:59**) |
 | Overlap | `SKIP` if previous run still open |
 | Schedule id | `fb-scrape-<groupId>` |

@@ -6,12 +6,12 @@ import {
 import { enabledGroups, facebookGroups } from "../src/groups.js";
 
 describe("scrape schedules", () => {
-  test("awake hours are 09–21 Israel (no overnight)", () => {
+  test("awake fires ~every 4h (09/13/17/21 Israel)", () => {
     const spec = scrapeScheduleSpec("Asia/Jerusalem");
     expect(spec.timezone).toBe("Asia/Jerusalem");
     expect(spec.calendars).toEqual([
       expect.objectContaining({
-        hour: [{ start: 9, end: 21 }],
+        hour: [9, 13, 17, 21],
         minute: 0,
       }),
     ]);
