@@ -42,9 +42,11 @@ bun run check:postgres
 bun run check:temporal
 bun run check:session-ops
 bun run check:pipeline
-bun run check:e2e-mocks
-bun run check:e2e-online
+bun run check:e2e-mocks          # automated CI gate (no live Facebook)
+bun run preprod:e2e-online       # manual live e2e — before prod (see docs/workstreams.md W7)
 ```
+
+**E2E policy:** mocks on every CI/PR; live Facebook only when you activate it (pre-prod). Not a blocking staging CI step.
 
 ## Run worker (host)
 

@@ -14,6 +14,41 @@ export type AuthProbeResult = {
   statePath: string;
 };
 
+/**
+ * Classify a loaded Facebook page from URL + visible text (no raw HTML).
+ * Used by the live probe and by mock e2e fixtures.
+ */
+export function classifyAuthPage(
+  pageUrl: string,
+  visibleText: string,
+): Exclude<AuthStatus, "missing_state"> {
+  const url = pageUrl.toLowerCase();
+  const visible = visibleText.toLowerCase();
+
+  if (
+    url.includes("/checkpoint") ||
+    url.includes("checkpoint/") ||
+    visible.includes("confirm you're human") ||
+    visible.includes("we suspended your account")
+  ) {
+    return "checkpoint";
+  }
+
+  if (
+    url.includes("/login") ||
+    visible.includes("log in to facebook") ||
+    visible.includes("התחבר לפייסבוק")
+  ) {
+    return "login_wall";
+  }
+
+  if (url.includes("facebook.com") && !url.includes("/login")) {
+    return "ok";
+  }
+
+  return "unknown";
+}
+
 export async function probeFacebookSession(
   statePath: string,
 ): Promise<AuthProbeResult> {
@@ -36,48 +71,34 @@ export async function probeFacebookSession(
       timeout: 45_000,
     });
 
-    const url = page.url().toLowerCase();
-    // Prefer visible text — raw HTML often contains the string "checkpoint"
-    // in JS bundles even on a healthy feed.
-    const visible = (await page.locator("body").innerText().catch(() => ""))
-      .toLowerCase();
+    const url = page.url();
+    const visible = (await page.locator("body").innerText().catch(() => ""));
+    const status = classifyAuthPage(url, visible);
 
-    if (
-      url.includes("/checkpoint") ||
-      url.includes("checkpoint/") ||
-      visible.includes("confirm you're human") ||
-      visible.includes("we suspended your account")
-    ) {
+    if (status === "checkpoint") {
       return {
-        status: "checkpoint",
-        detail: `Facebook checkpoint at ${page.url()}`,
+        status,
+        detail: `Facebook checkpoint at ${url}`,
         statePath,
       };
     }
-
-    if (
-      url.includes("/login") ||
-      visible.includes("log in to facebook") ||
-      visible.includes("התחבר לפייסבוק")
-    ) {
+    if (status === "login_wall") {
       return {
-        status: "login_wall",
-        detail: `Login wall at ${page.url()}`,
+        status,
+        detail: `Login wall at ${url}`,
         statePath,
       };
     }
-
-    if (url.includes("facebook.com") && !url.includes("/login")) {
+    if (status === "ok") {
       return {
-        status: "ok",
-        detail: `Session looks valid (${page.url()})`,
+        status,
+        detail: `Session looks valid (${url})`,
         statePath,
       };
     }
-
     return {
       status: "unknown",
-      detail: `Ambiguous session state at ${page.url()}`,
+      detail: `Ambiguous session state at ${url}`,
       statePath,
     };
   } finally {

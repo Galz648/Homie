@@ -1,5 +1,9 @@
 import { createSql, ensureCursor, markRunOutcome } from "./cursor.js";
-import { scrapeGroupFeed } from "./scrapeFeed.js";
+import {
+  scrapeGroupFeed,
+  type ScrapeFeedInput,
+  type ScrapeFeedResult,
+} from "./scrapeFeed.js";
 import type { RunReport } from "./types.js";
 import { upsertScrapedPosts } from "./upsertListings.js";
 import { formatIsraelTime } from "../time.js";
@@ -9,6 +13,8 @@ export type RunScrapeInput = {
   groupUrl: string;
   statePath: string;
   databaseUrl?: string;
+  /** Test seam: inject feed scrape (no live Facebook). */
+  scrapeFn?: (input: ScrapeFeedInput) => Promise<ScrapeFeedResult>;
 };
 
 function withReportTime<T extends Omit<RunReport, "finishedAtIsrael">>(
@@ -24,10 +30,11 @@ export async function runScrapePipeline(
   input: RunScrapeInput,
 ): Promise<RunReport> {
   const sql = createSql(input.databaseUrl);
+  const scrape = input.scrapeFn ?? scrapeGroupFeed;
   try {
     const cursor = await ensureCursor(sql, input.groupId, input.groupUrl);
     const coldStart = !cursor.lastPostId;
-    const feed = await scrapeGroupFeed({
+    const feed = await scrape({
       groupId: input.groupId,
       groupUrl: input.groupUrl,
       statePath: input.statePath,
@@ -49,6 +56,27 @@ export async function runScrapePipeline(
         groupId: input.groupId,
         status: "auth",
         stopReason: "auth",
+        postsSeen: 0,
+        postsNew: 0,
+        postsUpserted: 0,
+        coldStart,
+      });
+    }
+
+    // Incremental: hit existing watermark with no newer posts.
+    if (feed.stopReason === "hit_watermark" && feed.posts.length === 0) {
+      await markRunOutcome(sql, {
+        groupId: input.groupId,
+        groupUrl: input.groupUrl,
+        status: "ok",
+        postsSeen: 0,
+        postsNew: 0,
+        advanceWatermark: false,
+      });
+      return withReportTime({
+        groupId: input.groupId,
+        status: "ok",
+        stopReason: "hit_watermark",
         postsSeen: 0,
         postsNew: 0,
         postsUpserted: 0,

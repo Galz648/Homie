@@ -22,8 +22,8 @@ Status legend: `done` · `next` · `later` · `blocked`
 | W5 | Pre-commit / drift | Hooks for lint, typecheck, infra/config drift | later |
 | W6 | Make the product work | Scraper + API + UI end-to-end behavior | later |
 | W6a | Facebook scrape ops | Architecture, reliability signals, session renewal (design before W6.1) | next |
-| W6a-e2e | Local scrape e2e looper | `looper-homie-fb-scrape-e2e` — Postgres + Temporal + Playwright; mocks + online AC; merge to `infra` on operator pass | next |
-| W7 | E2E tests | Automated proof of W6 (+ CI wiring) | later |
+| W6a-e2e | Local scrape e2e looper | `looper-homie-fb-scrape-e2e` — mocks (CI gate) + live (manual pre-prod); see W7 policy | next |
+| W7 | E2E tests | Mocks automated; live Facebook e2e **manual before prod** | next |
 
 Suggested order: **W0 → W1 ∥ W2 → W3 → W4/W5 → W6a → W6 → W7**  
 (W1 and W2 can run in parallel; W3 before coding W6; **W6a before building the Facebook fetcher**.)
@@ -329,7 +329,7 @@ Because results are flaky, every run must answer: *did it work, and if not, why?
 | W6a.2.1 Error taxonomy | Enumerate exit reasons (ok / empty_suspect / auth / parse / throttle / crash) | next |
 | W6a.2.2 Structured run report | One JSON object per run; always emit even on success | next |
 | W6a.2.3 Alert thresholds | e.g. 0 new posts N runs in a row, or auth failure → Slack immediately | next |
-| W6a.2.4 Wire Slack | Auth probe failures → `#homie-runtime-errors` (`SLACK_RUNTIME_ERRORS_CHANNEL_ID`); scaffold in `scrapers/facebook/` | **next** (code stub) |
+| W6a.2.4 Wire Slack | Auth probe → `#homie-runtime-errors` via `formatRuntimeErrorMessage` / `formatAuthFailureMessage` | **done** (template + probe) |
 | W6a.2.5 Failure artifacts | Screenshot + optional response dump on non-ok; retention policy | later |
 
 **Done when:** a broken selector or dead session produces a clear, classed alert — not silent empty inserts.
@@ -381,13 +381,26 @@ Depends on W3–W4 and **W6a** (for Facebook fetcher design).
 
 ## W7 — E2E tests
 
-Depends on W6.
+Depends on W6 / W6a scrape path. Two scrape e2e kinds:
+
+| Kind | Command | When | Slack |
+|------|---------|------|--------|
+| **Mocks** | `cd scrapers/facebook && bun run check:e2e-mocks` | Automated gate — every PR / staging CI / pre-push that touches scrape | Never (unit-test formatter / recorder only) |
+| **Live** | `cd scrapers/facebook && bun run preprod:e2e-online` (wraps `check:e2e-online`) | **Manual only** — operator runs before promoting scrape to **prod** (and when debugging session/FB path) | Do not treat as `#homie-runtime-errors` by default; opt-in later if needed |
+
+**Agreed policy**
+- Staging CI runs **mocks**, not live Facebook.
+- Live is **not** a blocking staging Workflow on every deploy.
+- Before prod scrape rollout: operator activates live e2e locally (fresh session → green → promote).
+- Optional later: scheduled/manual staging Cron for session health — still separate from the default CI gate.
 
 | Task | Notes | Status |
 |------|-------|--------|
-| W7.1 Local e2e | Seed → fetch or fixture → API → assert UI/API | later |
-| W7.2 On-cluster CI | Argo WorkflowTemplate beyond smoke; GHA `argo-ci.yml` submits | later |
-| W7.3 Slack on fail | Failures → `#homie-ci` (W1) | later |
+| W7.0 Scrape e2e policy | Mocks = CI gate; live = manual pre-prod (`runE2eOnline.ts`) | **done** |
+| W7.1 Live run script | `scrapers/facebook/scripts/runE2eOnline.ts` → `bun run preprod:e2e-online` | **done** |
+| W7.2 Mocks in CI | Wire `check:e2e-mocks` into Argo / GHA when scrape CI lands | later |
+| W7.3 Product e2e | Seed → API → UI (broader Homie, beyond FB scrape) | later |
+| W7.4 Slack on CI fail | Platform/CI failures → `#homie-ci` / `#homie-alerts-argo-workflows` (W1) | later |
 
 ---
 

@@ -1,24 +1,5 @@
-import { beforeAll, afterAll, describe, expect, test, vi } from "vitest";
+import { beforeAll, afterAll, describe, expect, test } from "vitest";
 import postgres from "postgres";
-
-vi.mock("../src/pipeline/scrapeFeed.ts", () => ({
-  scrapeGroupFeed: vi.fn(async () => ({
-    posts: [
-      {
-        postId: "111",
-        url: "https://www.facebook.com/groups/mock-e2e/posts/111",
-        text: "דירה בתל אביב ₪7500",
-      },
-      {
-        postId: "110",
-        url: "https://www.facebook.com/groups/mock-e2e/posts/110",
-        text: "roommate near Dizengoff",
-      },
-    ],
-    stopReason: "cold_start_cap" as const,
-  })),
-}));
-
 import { runScrapePipeline } from "../src/pipeline/runScrape.js";
 import { loadCursor } from "../src/pipeline/cursor.js";
 
@@ -26,7 +7,7 @@ const DB =
   process.env.DATABASE_URL ??
   "postgresql://homie:homie@127.0.0.1:54329/homie";
 
-describe("runScrapePipeline (mocked Facebook)", () => {
+describe("runScrapePipeline (mocked Facebook via scrapeFn)", () => {
   const sql = postgres(DB, { max: 2 });
   const groupId = "mock-e2e-group";
 
@@ -45,6 +26,21 @@ describe("runScrapePipeline (mocked Facebook)", () => {
       groupUrl: `https://www.facebook.com/groups/${groupId}`,
       statePath: "/tmp/homie-mock-missing-state.json",
       databaseUrl: DB,
+      scrapeFn: async () => ({
+        posts: [
+          {
+            postId: "111",
+            url: "https://www.facebook.com/groups/mock-e2e/posts/111",
+            text: "דירה בתל אביב ₪7500",
+          },
+          {
+            postId: "110",
+            url: "https://www.facebook.com/groups/mock-e2e/posts/110",
+            text: "roommate near Dizengoff",
+          },
+        ],
+        stopReason: "cold_start_cap",
+      }),
     });
 
     expect(report.status).toBe("ok");

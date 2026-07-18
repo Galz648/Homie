@@ -16,6 +16,7 @@
     "check:pipeline": "tsx scripts/checkScrapePipeline.ts",
     "check:e2e-mocks": "tsx scripts/checkE2eMocks.ts",
     "check:e2e-online": "tsx scripts/checkE2eOnline.ts",
+    "preprod:e2e-online": "tsx scripts/runE2eOnline.ts",
     "show:cursors": "tsx scripts/showScrapeCursors.ts"
   },
   "dependencies": {

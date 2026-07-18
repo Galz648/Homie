@@ -2,9 +2,10 @@
  * AC: live Temporal scrape for configured Facebook group against k3s.
  *
  *   bun run check:e2e-online
+ *   bun run preprod:e2e-online  (banner wrapper — scripts/runE2eOnline.ts)
  */
 import { spawn } from "node:child_process";
-import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, unlinkSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import postgres from "postgres";
@@ -20,7 +21,7 @@ const FB = join(dirname(fileURLToPath(import.meta.url)), "..");
 const DEFAULT_GROUP = "35819517694";
 const RESULT_PATH = "/tmp/homie-fb-online-e2e-result.json";
 
-async function main(): Promise<void> {
+export async function runE2eOnline(): Promise<void> {
   for (const rel of [
     "scripts/checkE2eOnline.ts",
     "scripts/run-online-scrape.ts",
@@ -130,7 +131,10 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+const isDirectRun = process.argv[1]?.includes("checkE2eOnline");
+if (isDirectRun) {
+  runE2eOnline().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}

@@ -1,13 +1,34 @@
-import { log } from "@temporalio/activity";
-import { loadSettings } from "./config.js";
-import { probeFacebookSession } from "./authProbe.js";
+import { log as temporalLog } from "@temporalio/activity";
+import { loadSettings, type Settings } from "./config.js";
+import {
+  probeFacebookSession,
+  type AuthProbeResult,
+} from "./authProbe.js";
 import { runScrapePipeline } from "./pipeline/runScrape.js";
 import type { RunReport } from "./pipeline/types.js";
 import {
   formatAuthFailureMessage,
   postRuntimeError,
   shouldAlertAuth,
+  type RuntimeErrorMessage,
 } from "./slackNotify.js";
+
+const log = {
+  info: (msg: string) => {
+    try {
+      temporalLog.info(msg);
+    } catch {
+      console.info(msg);
+    }
+  },
+  error: (msg: string) => {
+    try {
+      temporalLog.error(msg);
+    } catch {
+      console.error(msg);
+    }
+  },
+};
 
 export type AuthProbeInput = {
   groupId: string;
@@ -22,12 +43,25 @@ export type AuthProbeActivityResult = {
   slackNotified: boolean;
 };
 
+export type ProbeFacebookAuthDeps = {
+  settings?: Settings;
+  probe?: (statePath: string) => Promise<AuthProbeResult>;
+  postError?: (args: {
+    botToken: string;
+    channelId: string;
+    message: RuntimeErrorMessage | string;
+  }) => Promise<void>;
+};
+
 /** Activity: auth probe; on failure posts to #homie-runtime-errors. */
 export async function probeFacebookAuth(
   input: AuthProbeInput,
+  deps: ProbeFacebookAuthDeps = {},
 ): Promise<AuthProbeActivityResult> {
-  const settings = loadSettings();
-  const result = await probeFacebookSession(settings.facebookStatePath);
+  const settings = deps.settings ?? loadSettings();
+  const probe = deps.probe ?? probeFacebookSession;
+  const postError = deps.postError ?? postRuntimeError;
+  const result = await probe(settings.facebookStatePath);
 
   let slackNotified = false;
   if (shouldAlertAuth(result.status)) {
@@ -44,7 +78,7 @@ export async function probeFacebookAuth(
         result,
         workflowId: input.workflowId,
       });
-      await postRuntimeError({
+      await postError({
         botToken: token,
         channelId: channel,
         message,
