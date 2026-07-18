@@ -41,9 +41,7 @@ export const rawFacebookPosts = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date()),
   },
-  (table) => [
-    index("raw_facebook_posts_group_id_idx").on(table.groupId),
-  ],
+  (table) => [index("raw_facebook_posts_group_id_idx").on(table.groupId)],
 );
 
 /**
@@ -64,19 +62,14 @@ export const scrapeCursors = pgTable(
     lastError: text(),
     postsSeen: integer().notNull().default(0),
     postsNew: integer().notNull().default(0),
-    createdAt: timestamp({ withTimezone: true, precision: 3, mode: "date" })
-      .notNull()
-      .defaultNow(),
+    createdAt: timestamp({ withTimezone: true, precision: 3, mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true, precision: 3, mode: "date" })
       .notNull()
       .defaultNow()
       .$onUpdate(() => new Date()),
   },
   (table) => [
-    unique("scrape_cursors_source_group_id_unique").on(
-      table.source,
-      table.groupId,
-    ),
+    unique("scrape_cursors_source_group_id_unique").on(table.source, table.groupId),
     index("scrape_cursors_last_status_idx").on(table.lastStatus),
   ],
 );
@@ -98,17 +91,15 @@ export const apartmentListings = pgTable(
     address: text(),
     /** Freeform caveats / conditionals from the source post. */
     conditionals: text(),
-    createdAt: timestamp({ withTimezone: true, precision: 3, mode: "date" })
-      .notNull()
-      .defaultNow(),
+    /** Copied from raw_facebook_posts.images by postId on ingest upsert. */
+    images: text().array().notNull().default([]),
+    createdAt: timestamp({ withTimezone: true, precision: 3, mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true, precision: 3, mode: "date" })
       .notNull()
       .defaultNow()
       .$onUpdate(() => new Date()),
   },
-  (table) => [
-    index("apartment_listings_post_id_idx").on(table.postId),
-  ],
+  (table) => [index("apartment_listings_post_id_idx").on(table.postId)],
 );
 
 export type RawFacebookPost = typeof rawFacebookPosts.$inferSelect;

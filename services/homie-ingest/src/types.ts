@@ -7,11 +7,21 @@ export type ListingIngestBody = {
   contactPhone?: string | null;
   address?: string | null;
   conditionals?: string | null;
+  /**
+   * Test-only convenience for `createMemoryStore`. The Agent/HTTP caller is not
+   * the source of truth for images — `createDrizzleStore` always ignores this
+   * field and copies `images` from `raw_facebook_posts` by `postId` instead.
+   */
+  images?: string[];
 };
 
 export type UpsertResult = {
   postId: string;
   created: boolean;
+  /** Copied from raw_facebook_posts.images by postId (never client-supplied in prod). */
+  images: string[];
+  /** raw_facebook_posts.url for the same postId, when available. */
+  postUrl?: string;
 };
 
 export type ListingStore = {
