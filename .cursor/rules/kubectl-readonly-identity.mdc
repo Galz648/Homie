@@ -1,0 +1,45 @@
+---
+description: "Agent must use Homie k3s read-only kubeconfig only; never break-glass admin unless user explicitly says so."
+alwaysApply: true
+---
+
+# Homie k3s kubectl identity (read-only)
+
+## Default kubeconfig for the agent
+
+Always set:
+
+```bash
+export KUBECONFIG="$HOME/.kube/homie-k3s-readonly.yaml"
+```
+
+(or `$HOME/.kube/homie-k3s.yaml` only if it is the readonly install from
+`scripts/mint-homie-k3s-readonly-kubeconfig.sh`).
+
+| File | Who |
+|------|-----|
+| `~/.kube/homie-k3s-readonly.yaml` | **Agent default** — SA `homie-ops/homie-readonly` → ClusterRole `view` |
+| `~/.kube/homie-k3s-admin.yaml` | **Break-glass only** — human operator; agent must not use |
+
+## Forbidden for the agent
+
+- `KUBECONFIG=~/.kube/homie-k3s-admin.yaml` (or any admin/client-cert context)
+- `kubectl` writes (`apply`, `create`, `patch`, `edit`, `delete`, `set`, `rollout restart`, `scale`, `exec`, `cp`, `port-forward` that imply write paths you do not need)
+- Minting/replacing kubeconfigs unless the user explicitly asked
+
+If a task needs a write (secrets apply, RBAC change, Workflow submit that fails under `view`), **stop** and tell the user to run it with admin / break-glass — do not switch identities yourself.
+
+## Allowed
+
+- `get` / `describe` / `logs` / `top` / `auth can-i`
+- Argo status reads (`kubectl -n argocd get app …`)
+- Diagnosing OutOfSync / image pin / pod readiness
+
+Desired-state changes: git → push → Argo auto-sync (see `no-manual-cluster-mutation.mdc`).
+
+## Re-mint (human)
+
+```bash
+KUBECONFIG=~/.kube/homie-k3s-admin.yaml \
+  ./scripts/mint-homie-k3s-readonly-kubeconfig.sh --apply --install-default
+```

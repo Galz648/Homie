@@ -1,0 +1,49 @@
+# Read-only laptop/agent identity for Homie k3s (GitOps write path is Argo CD).
+# Apply once with break-glass admin, then mint kubeconfig:
+#   KUBECONFIG=~/.kube/homie-k3s-admin.yaml ./scripts/mint-homie-k3s-readonly-kubeconfig.sh
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: homie-ops
+  labels:
+    app.kubernetes.io/part-of: homie
+    app.kubernetes.io/component: operator-rbac
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: homie-readonly
+  namespace: homie-ops
+  labels:
+    app.kubernetes.io/part-of: homie
+    app.kubernetes.io/component: operator-rbac
+    homie.io/access: readonly
+---
+# Long-lived token Secret (k8s auto-fills token + ca.crt).
+apiVersion: v1
+kind: Secret
+metadata:
+  name: homie-readonly-token
+  namespace: homie-ops
+  labels:
+    app.kubernetes.io/part-of: homie
+    app.kubernetes.io/component: operator-rbac
+  annotations:
+    kubernetes.io/service-account.name: homie-readonly
+type: kubernetes.io/service-account-token
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: homie-readonly-view
+  labels:
+    app.kubernetes.io/part-of: homie
+    app.kubernetes.io/component: operator-rbac
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: view
+subjects:
+  - kind: ServiceAccount
+    name: homie-readonly
+    namespace: homie-ops
