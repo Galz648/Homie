@@ -18,6 +18,13 @@ export const facebookGroups: FacebookGroup[] = [
   {
     id: "35819517694",
     url: "https://www.facebook.com/groups/35819517694",
+    name: "numeric-legacy",
+    enabled: true,
+  },
+  {
+    id: "telavivroommates",
+    url: "https://www.facebook.com/groups/telavivroommates",
+    name: "Tel Aviv Roommates",
     enabled: true,
   },
 ];

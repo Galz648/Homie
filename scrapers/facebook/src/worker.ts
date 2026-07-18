@@ -3,9 +3,14 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import * as activities from "./activities.js";
 import { loadSettings } from "./config.js";
+import { ensureScrapeSchedules } from "./ensureSchedules.js";
 
 async function main(): Promise<void> {
   const settings = loadSettings();
+
+  // Idempotent: create/update hourly schedules (09:00–21:00 Asia/Jerusalem).
+  await ensureScrapeSchedules(settings);
+
   const connection = await NativeConnection.connect({
     address: settings.temporalAddress,
   });

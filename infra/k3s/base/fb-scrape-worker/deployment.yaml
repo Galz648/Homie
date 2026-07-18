@@ -29,6 +29,9 @@ spec:
             - secretRef:
                 name: homie-spaces-images
                 optional: true
+            - secretRef:
+                name: homie-slack
+                optional: true
           volumeMounts:
             - name: facebook-state
               mountPath: /var/homie

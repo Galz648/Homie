@@ -10,5 +10,7 @@ data:
   TEMPORAL_NAMESPACE: default
   HOMIE_FB_TASK_QUEUE: homie-fb-scrape
   HOMIE_FACEBOOK_STATE_PATH: /var/homie/facebook_state.json
-  # Spaces mode is on when Secret homie-spaces-images is present.
   HOMIE_IMAGE_UPLOAD_MODE: spaces
+  # Staging Slack channel resolution (see scrapers/facebook/README.md)
+  HOMIE_LANE: staging
+  HOMIE_SCRAPE_TZ: Asia/Jerusalem

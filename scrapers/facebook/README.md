@@ -11,8 +11,27 @@ Edit [`src/groups.ts`](./src/groups.ts):
 ```ts
 export const facebookGroups: FacebookGroup[] = [
   { id: "35819517694", enabled: true },
+  {
+    id: "telavivroommates",
+    url: "https://www.facebook.com/groups/telavivroommates",
+    enabled: true,
+  },
 ];
 ```
+
+## Schedules (Temporal)
+
+On worker start, `ensureScrapeSchedules` creates/updates one Schedule per enabled
+group:
+
+| | |
+|--|--|
+| Cadence | Hourly at `:00` |
+| Window | **09:00–21:00** `Asia/Jerusalem` (no runs **22:00–08:59**) |
+| Overlap | `SKIP` if previous run still open |
+| Schedule id | `fb-scrape-<groupId>` |
+
+Override TZ with `HOMIE_SCRAPE_TZ`.
 
 ## Local k3s setup
 

@@ -1,5 +1,5 @@
-# Node + tsx Temporal worker (see .cursor/rules/temporal-runtime.mdc).
-# Playwright browsers: install in a follow-up layer when live scrape runs in-cluster.
+# Node + tsx Temporal worker with Playwright Chromium for live scrape.
+# See .cursor/rules/temporal-runtime.mdc — worker runtime is Node (tsx).
 FROM node:22-bookworm-slim
 
 WORKDIR /app
@@ -9,11 +9,14 @@ RUN apt-get update -qq \
   && rm -rf /var/lib/apt/lists/*
 
 COPY scrapers/facebook/package.json scrapers/facebook/bun.lock* scrapers/facebook/package-lock.json* ./
-# Prefer npm for Node runtime image (lock may be bun-only — fall back to npm install).
 RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
+
+# Browser + OS deps for in-cluster scrape activities.
+RUN npx playwright install --with-deps chromium
 
 COPY scrapers/facebook/tsconfig.json ./
 COPY scrapers/facebook/src ./src
 
 ENV NODE_ENV=production
+ENV HOMIE_SCRAPE_TZ=Asia/Jerusalem
 CMD ["npx", "tsx", "src/worker.ts"]
