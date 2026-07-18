@@ -60,14 +60,23 @@ Secrets (never commit):
 | | |
 |--|--|
 | Runtime errors | `#homie-runtime-errors-staging` → `SLACK_STAGING_RUNTIME_ERRORS_CHANNEL_ID` |
-| New postings | `#homie-new-postings-staging` → `SLACK_STAGING_NEW_POSTINGS_CHANNEL_ID` |
+| Raw postings (scrape) | `#homie-raw-postings-staging` → `SLACK_STAGING_RAW_POSTINGS_CHANNEL_ID` |
 
-Prod: `#homie-runtime-errors` / `#homie-new-postings` via `SLACK_RUNTIME_ERRORS_CHANNEL_ID` /
-`SLACK_NEW_POSTINGS_CHANNEL_ID`.
+Prod: `#homie-runtime-errors` / `#homie-raw-postings` via `SLACK_RUNTIME_ERRORS_CHANNEL_ID` /
+`SLACK_RAW_POSTINGS_CHANNEL_ID`.
 
 Staging worker must set `HOMIE_LANE=staging` (or `HOMIE_ENV=staging`) so
 `loadSettings()` resolves the staging channel IDs — it does **not** fall back to
 prod channels. Apply with `./scripts/apply-homie-slack-secret.sh staging|production`.
+
+The scraper posts each newly-seen raw Facebook post to `#homie-raw-postings[-staging]`
+(`resolveRawPostingsChannelId` in [`src/config.ts`](./src/config.ts)) before extraction.
+Once the CF Agent extracts structured fields and `homie-ingest` upserts the listing,
+`homie-ingest` posts a separate summary — post link + image links — to
+`#homie-listings-ingest[-staging]` (see
+[`infra/k3s/base/homie-ingest/README.md`](../../infra/k3s/base/homie-ingest/README.md)).
+The old `SLACK_*_NEW_POSTINGS_CHANNEL_ID` names are still read as a fallback for the
+raw-postings channel during the migration window.
 
 ## Raw post images (Temporal activity)
 

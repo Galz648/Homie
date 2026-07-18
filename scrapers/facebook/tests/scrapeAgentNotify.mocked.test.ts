@@ -43,7 +43,7 @@ describe("scrape → Agent notify (mocked e2e)", () => {
       {
         settings: fakeSettings({
           slackBotToken: "xoxb-test",
-          slackNewPostingsChannelId: "C_STAGING_POSTINGS",
+          slackRawPostingsChannelId: "C_STAGING_POSTINGS",
           lane: "staging",
         }),
         postPosting: async (args) => {
