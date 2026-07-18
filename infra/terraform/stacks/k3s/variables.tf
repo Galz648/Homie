@@ -73,3 +73,27 @@ variable "tailscale_enabled" {
   type        = bool
   default     = false
 }
+
+variable "spaces_images_enabled" {
+  description = "Create DigitalOcean Spaces buckets for scraped listing photos (staging + production)."
+  type        = bool
+  default     = true
+}
+
+variable "spaces_images_region" {
+  description = "Spaces region for listing-image buckets (usually same as droplet region). Empty = var.region."
+  type        = string
+  default     = null
+}
+
+variable "spaces_images_bucket_staging" {
+  description = "Optional override for staging images bucket name (default: <droplet_name>-images-staging)."
+  type        = string
+  default     = null
+}
+
+variable "spaces_images_bucket_production" {
+  description = "Optional override for production images bucket name (default: <droplet_name>-images-production)."
+  type        = string
+  default     = null
+}
