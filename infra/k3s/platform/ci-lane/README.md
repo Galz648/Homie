@@ -3,22 +3,24 @@
 Dedicated namespace for on-cluster Argo Workflows CI so runs do not mutate
 `homie-staging` / `homie` app lanes.
 
-**Status:** scaffold only — add job runners / data plane when Homie has
-containerized CI jobs (e.g. future scrapers).
+**Primary CI** is Argo Workflows on the droplet with a **pull** trigger
+(`homie-ci-staging-poll` CronJob on GitHub `staging`). See
+`../argo-workflows/README.md`.
 
 ## Intent
 
 | Item | Plan |
 |------|------|
 | Namespace | `homie-ci` |
-| Consumers | `WorkflowTemplate/homie-ci-smoke` and future Homie CI templates |
-| Isolation | Do not apply CI Jobs into `homie-staging` |
+| Consumers | `homie-ci-smoke`, `homie-ci-staging`, future Homie CI templates |
+| Isolation | Do not apply CI Jobs into `homie-staging` app Deployments |
+| Trigger | Cluster polls GitHub — not GHA→kubectl |
 
 ## Non-goals
 
 - Replacing Argo CD
 - Public Ingress for Workflows UI
-- Running Homie-Website product tests before suites exist
+- `HOMIE_K3S_KUBECONFIG` as primary CI submit path
 
 ## Apply
 

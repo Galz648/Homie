@@ -1,7 +1,7 @@
 # Platform — Argo Workflows (Phase 3)
 
-In-cluster workflow engine — **primary CI** on the droplet. **Argo CD stays the deploy sync path.**  
-GitHub Actions is **secondary/transitional** until `HOMIE_K3S_KUBECONFIG` is set and branch protection requires **Argo CI**.
+In-cluster workflow engine — **primary CI** on the droplet (clinic **pull** model).
+**Argo CD stays the deploy sync path.**
 
 | Item | Default |
 |------|---------|
@@ -10,6 +10,29 @@ GitHub Actions is **secondary/transitional** until `HOMIE_K3S_KUBECONFIG` is set
 | Chart | `argo/argo-workflows` **1.0.19** (app v4.0.7) |
 | Server | ClusterIP **2746** (port-forward only) |
 | Smoke | `examples/hello-smoke.yaml` |
+| Staging CI | `templates/homie-ci-staging.yaml` + `examples/ci-staging-poll-cronjob.yaml` |
+
+## CI model (pull)
+
+```text
+GitHub branch staging
+        ▲
+        │  cluster polls api.github.com (~1m) / clones git
+        │
+Argo Workflows ON droplet (PRIMARY)
+        │  CronJob homie-ci-staging-poll
+        ▼
+WorkflowTemplate homie-ci-staging (+ facebook-mock)
+```
+
+**Policy:** no GitHub→cluster kubeconfig for CI submit. Cluster reaches GitHub;
+not the reverse. Optional thin GHA remains secondary only — do **not** use a
+repo kubeconfig secret as the main CI submit path.
+
+| Trigger | Artifact |
+|---------|----------|
+| Staging tip poll (1m) | `examples/ci-staging-poll-cronjob.yaml` (suspend until `argo/github-ci-read`) |
+| Manual / smoke | `kubectl -n argo create` from `homie-ci-staging` template |
 
 ## Install
 
@@ -30,17 +53,17 @@ kubectl -n argo port-forward svc/homie-argo-workflows-server 2746:2746
 
 ## WorkflowTemplates
 
-Reusable CI templates live under `templates/`:
-
 | Template | Purpose |
 |----------|---------|
-| `homie-ci-unit-slice` | Clone staging → light unit + `config:sync --check` |
-| `homie-ci-e2e-precommit` | Clone staging → `test:e2e:precommit` via staging mock Services |
+| `homie-ci-smoke` | Minimal echo smoke |
+| `homie-ci-staging` | Clone staging → hit `facebook-mock` (staging CI) |
 
 ```bash
-kubectl -n argo apply -f templates/
-kubectl -n argo create -f examples/from-template-ci-unit.yaml
-kubectl -n argo create -f examples/from-template-ci-e2e.yaml
+kubectl -n argo apply -f templates/homie-ci-staging.yaml
+kubectl -n argo apply -f examples/ci-staging-poll-cronjob.yaml
+# After PAT secret:
+# kubectl -n argo create secret generic github-ci-read --from-literal=token=ghp_…
+# kubectl -n argo patch cronjob homie-ci-staging-poll -p '{"spec":{"suspend":false}}'
 ```
 
 ## Smoke
@@ -50,39 +73,8 @@ kubectl -n argo create -f examples/hello-smoke.yaml
 kubectl -n argo get workflows
 ```
 
-## Acceptance / light CI (droplet)
-
-```bash
-# RBAC once
-kubectl apply -f examples/platform-acceptance-rbac.yaml
-
-# Platform probes: Zot, Infisical, ESO ClusterSecretStore + demo ExternalSecret, Argo controller
-kubectl -n argo create -f examples/platform-acceptance.yaml
-
-# Real repo CI slice: clone staging → bun install → unit tests + config:sync --check
-kubectl -n argo create -f examples/ci-unit-slice.yaml
-kubectl -n argo get workflows
-```
-
-Proven on `homie-k3s-droplet`: platform-acceptance Succeeded; ci-unit-slice + `config:sync --check OK`.
-
-## PR gate (thin GHA → WorkflowTemplates)
-
-```bash
-# Local / operator
-./scripts/ci/argo-wf-submit-wait.sh infra/k3s/platform/argo-workflows/examples/from-template-ci-unit.yaml
-```
-
-GitHub Actions workflow: `.github/workflows/argo-ci.yml`
-
-1. Add repository secret `HOMIE_K3S_KUBECONFIG` (kubeconfig YAML or base64) for `homie-k3s-droplet`
-2. Optional: mark **Argo CI / Submit Argo Workflow** required on `staging`
-3. Until the secret exists, PR runs skip this job; use **Actions → Argo CI → Run workflow**
-
-Argo CD stays deploy sync — it does not run these tests.
-
 ## Notes
 
 - Do not enable Ingress/LoadBalancer without auth.
 - Do not replace Argo CD with Workflows.
-- `ci-unit-slice` needs ~1–2.5Gi temporary memory + 4Gi PVC; avoid running while the node is memory-tight.
+- Staging CI needs `facebook-mock` in `homie-staging` (see `infra/k3s/base/facebook-mock`).
