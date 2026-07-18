@@ -34,6 +34,21 @@ Secrets (never commit):
 
 - `~/.config/homie/slack.env` — `SLACK_BOT_TOKEN`, `SLACK_RUNTIME_ERRORS_CHANNEL_ID`
 - `~/.config/homie/facebook_state.json` — `bun run renew` or `bun run import-chrome-session`
+- `~/.config/homie/spaces.env` — Spaces upload (`HOMIE_IMAGES_BUCKET`, `HOMIE_IMAGES_BASE_URL`, `HOMIE_SPACES_*`)
+
+## Listing images
+
+| Mode | Env | Behavior |
+|------|-----|----------|
+| **noop** (default) | `HOMIE_IMAGE_UPLOAD_MODE` unset/`noop` | Keep Facebook CDN URLs in `apartment_posts.images` — local e2e |
+| **spaces** | `HOMIE_IMAGE_UPLOAD_MODE=spaces` | Download → upload to DO Spaces → persist CDN URLs |
+
+```bash
+# Manual one-image smoke (needs spaces.env + real bucket):
+bun run smoke:spaces-upload
+```
+
+See `infra/terraform/stacks/k3s/README.md` for staging/production bucket TF.
 
 ## AC runners (Bun / TypeScript)
 
@@ -44,6 +59,7 @@ bun run check:session-ops
 bun run check:pipeline
 bun run check:e2e-mocks          # automated CI gate (no live Facebook)
 bun run preprod:e2e-online       # manual live e2e — before prod (see docs/workstreams.md W7)
+bun run smoke:spaces-upload      # manual Spaces one-image upload
 ```
 
 **E2E policy:** mocks on every CI/PR; live Facebook only when you activate it (pre-prod). Not a blocking staging CI step.
