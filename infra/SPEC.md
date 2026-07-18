@@ -71,16 +71,23 @@ Phase 1 includes:
 2. Argo CD — GitOps controller + Homie Application stubs
 3. Argo Workflows — primary CI (`homie-ci-staging-poll` → mock e2e)
 4. Argo CD Applications — manual Sync of overlays/monitoring from `staging`
-5. Image build / Zot / overlay pin — **deferred** (no Homie app images yet)
+5. Image build / Zot / overlay pin — **live** on droplet (Kaniko → Zot →
+   `chore(k3s): pin*` → Argo Sync). Verify with `scripts/k3s/assert-worker-pin.sh`.
+   Never `kubectl set image` (see `.cursor/rules/no-manual-cluster-mutation.mdc`).
+6. Manual scrape trigger — WorkflowTemplate `homie-trigger-scrape` (exec into
+   Temporal; no admin-tools pull)
 
 ## Out of scope (for now)
 
 - Restoring Alchemy / Cloudflare preview-publish workflows
-- Containerizing Homie-Website or the Facebook Playwright **worker** (host Bun for now)
+- Containerizing Homie-Website (FB scrape worker image is live via Zot)
 - GHA as primary CI submit path (`HOMIE_K3S_KUBECONFIG`)
-- Image build → Zot → `chore(k3s): pin*` (poller already skips pin commits)
 - Infisical / External Secrets (optional later)
 - clinic domain workloads (WAHA, clinic Temporal, etc.)
+
+**CD loop (staging):** tip → `homie-ci-staging` → `homie-build-images` → pin
+commit → Argo Sync → `assert-worker-pin.sh`. Trigger live scrape via
+`examples/ci-trigger-scrape.yaml` (not ad-hoc admin-tools pods).
 
 **In scope for W6a-e2e (local overlay):** scrape Postgres + Temporal Deployments in `homie` ns (`infra/k3s/base/scrape-postgres`, `scrape-temporal`), exposed on the host via k3d LB ports `54329` / `7233` / `8233`.
 

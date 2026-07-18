@@ -10,7 +10,8 @@ Dedicated namespace for on-cluster Argo Workflows CI so runs do not mutate
 | **Argo Workflows (PRIMARY CI)** | Clone `staging` → drizzle migrate → assert scrape tables → `bun run test:e2e-mocks` | Tip SHA changes (poller); skip `chore(k3s): pin*` |
 | **Lane migrate (GitOps)** | PreSync Job `scrape-db-migrate` → clone **lane branch** (`staging`/`main`) → drizzle against lane `homie-database` | Every Argo sync of workloads app |
 | **Argo CD (GitOps deploy)** | Sync overlay/Helm desired state | Any path drift vs live (manual Sync for now) — **not** tags-only |
-| **Image build / pin** | Deferred until Homie has app images + Zot | — |
+| **Image build / pin** | Kaniko → Zot → `chore(k3s): pin*` → Argo Sync; verify `scripts/k3s/assert-worker-pin.sh` | After tip CI green (manual build submit until poll wires build) |
+| **Trigger scrape** | `homie-trigger-scrape` (exec Temporal; no admin-tools) | `kubectl -n argo create -f examples/ci-trigger-scrape.yaml` |
 | **GHA `argo-ci.yml`** | Secondary / optional submit-wait | Only if `HOMIE_K3S_KUBECONFIG` set — never primary |
 
 ```text
