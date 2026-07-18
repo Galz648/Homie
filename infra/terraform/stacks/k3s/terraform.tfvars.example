@@ -1,0 +1,15 @@
+# Non-secret defaults. Auth key goes in secrets.auto.tfvars (see secrets.auto.tfvars.example).
+# Auth for DigitalOcean: DIGITALOCEAN_TOKEN in the environment — never put the token here.
+
+droplet_name                = "homie-k3s"
+region                      = "fra1"
+size                        = "s-4vcpu-8gb"
+image                       = "ubuntu-24-04-x64"
+ssh_public_key_path         = "~/.ssh/id_ed25519.pub"
+# k3s_version               = "v1.31.5+k3s1"
+tags                        = ["k3s", "homie"]
+data_volume_size_gb = 1
+
+# Prefer Tailscale (secrets.auto.tfvars). Leave admin_cidrs empty so 22/6443
+# are not on the public internet. Set a /32 only for emergency break-glass.
+admin_cidrs = []

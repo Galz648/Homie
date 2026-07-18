@@ -1,0 +1,10 @@
+apiVersion: v2
+name: homie-argocd
+description: Argo CD GitOps controller for managed/local Homie k3s
+type: application
+version: 0.1.0
+appVersion: "3.4.5"
+dependencies:
+  - name: argo-cd
+    version: "10.1.3"
+    repository: https://argoproj.github.io/argo-helm

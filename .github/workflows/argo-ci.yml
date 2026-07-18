@@ -1,0 +1,68 @@
+name: Argo CI (on-cluster)
+
+# Thin GitHub Actions wrapper around Argo WorkflowTemplates on Homie k3s.
+# Full suites run in-cluster; this job only submits + waits.
+#
+# Local first: use workflow_dispatch with a machine that can reach k3d-homie-local.
+# Remote later: set repo secret HOMIE_K3S_KUBECONFIG (kubeconfig YAML or base64).
+
+on:
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: WorkflowTemplate suite to run
+        required: true
+        type: choice
+        default: smoke
+        options:
+          - smoke
+  pull_request:
+    branches: [infra, main]
+    paths-ignore:
+      - '**/*.md'
+      - '**/*.mdc'
+      - 'looper-*/**'
+
+concurrency:
+  group: argo-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  submit:
+    name: Submit Argo Workflow
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      secrets.HOMIE_K3S_KUBECONFIG != ''
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Write kubeconfig
+        env:
+          KUBECONFIG_B64: ${{ secrets.HOMIE_K3S_KUBECONFIG }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.kube"
+          if [ -z "${KUBECONFIG_B64}" ]; then
+            echo "HOMIE_K3S_KUBECONFIG empty — use a runner with local kubeconfig for smoke."
+            exit 1
+          fi
+          if printf '%s' "$KUBECONFIG_B64" | head -c 20 | grep -q 'apiVersion'; then
+            printf '%s\n' "$KUBECONFIG_B64" > "$HOME/.kube/config"
+          else
+            printf '%s' "$KUBECONFIG_B64" | base64 -d > "$HOME/.kube/config"
+          fi
+          chmod 600 "$HOME/.kube/config"
+          kubectl config get-contexts
+          kubectl config use-context k3d-homie-local || \
+            kubectl config use-context "$(kubectl config current-context)"
+
+      - name: Ensure WorkflowTemplate
+        run: kubectl -n argo apply -f infra/k3s/platform/argo-workflows/templates/homie-ci-smoke.yaml
+
+      - name: Submit smoke Workflow and wait
+        run: |
+          set -euo pipefail
+          name="$(kubectl -n argo create -f infra/k3s/platform/argo-workflows/examples/from-template-ci-smoke.yaml -o name)"
+          echo "created $name"
+          kubectl -n argo wait --for=condition=Completed "$name" --timeout=600s

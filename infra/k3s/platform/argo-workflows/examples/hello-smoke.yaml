@@ -1,0 +1,17 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: homie-hello-
+  namespace: argo
+  labels:
+    app.kubernetes.io/part-of: homie
+    homie.io/smoke: "true"
+spec:
+  entrypoint: main
+  serviceAccountName: argo-workflow
+  templates:
+    - name: main
+      container:
+        image: busybox:1.36
+        command: [sh, -c]
+        args: ["echo homie-argo-ok && sleep 1"]

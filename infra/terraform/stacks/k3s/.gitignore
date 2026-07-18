@@ -1,0 +1,20 @@
+# Secrets and generated artifacts — never commit
+*.tfstate
+*.tfstate.*
+*.tfstate.pre-remote.bak
+.terraform/
+.terraform.lock.hcl
+tfplan
+tfplan-*
+plan.err
+
+# Backend config with bucket name is OK to keep local-only if preferred
+backend.hcl
+
+# Secret / local var files
+*.auto.tfvars
+secrets.auto.tfvars
+*.tfvars
+!*.tfvars.example
+!terraform.tfvars.example
+!secrets.auto.tfvars.example

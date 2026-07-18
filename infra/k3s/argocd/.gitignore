@@ -1,0 +1,4 @@
+# Downloaded by `helm dependency build` / install.sh — do not commit.
+charts/
+*.tgz
+Chart.lock

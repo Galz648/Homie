@@ -1,0 +1,250 @@
+# Local-dev sized Homie monitoring stack (namespace: monitoring).
+# Umbrella chart keys match Chart.yaml dependencies.
+# No secrets here — pass Grafana admin password at install time if desired:
+#   --set kube-prometheus-stack.grafana.adminPassword="$GRAFANA_ADMIN_PASSWORD"
+
+# ---------------------------------------------------------------------------
+# kube-prometheus-stack — Prometheus + Grafana (+ CRDs)
+# ---------------------------------------------------------------------------
+kube-prometheus-stack:
+  crds:
+    enabled: true
+
+  defaultRules:
+    create: true
+    rules:
+      alertmanager: false
+      etcd: false
+
+  alertmanager:
+    enabled: false
+
+  grafana:
+    enabled: true
+    # Override at install; chart default is fine for local-only clusters.
+    admin:
+      existingSecret: ""
+    persistence:
+      enabled: false
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 384Mi
+    sidecar:
+      datasources:
+        enabled: true
+    additionalDataSources:
+      - name: Loki
+        type: loki
+        access: proxy
+        url: http://homie-monitoring-loki-gateway:80
+        isDefault: false
+        jsonData:
+          maxLines: 1000
+
+  prometheus:
+    prometheusSpec:
+      retention: 6h
+      retentionSize: 1GB
+      scrapeInterval: 30s
+      evaluationInterval: 30s
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          memory: 768Mi
+      storageSpec: {}
+      # EmptyDir by default — fine for local k3s.
+
+  prometheusOperator:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+
+  kube-state-metrics:
+    resources:
+      requests:
+        cpu: 20m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+
+  prometheus-node-exporter:
+    resources:
+      requests:
+        cpu: 20m
+        memory: 32Mi
+      limits:
+        memory: 64Mi
+
+  # k3s: etcd / controller-manager / scheduler often not scrapeable the same way.
+  kubeEtcd:
+    enabled: false
+  kubeControllerManager:
+    enabled: false
+  kubeScheduler:
+    enabled: false
+  kubeProxy:
+    enabled: false
+
+# ---------------------------------------------------------------------------
+# grafana/loki — single-binary, filesystem store, short retention
+# ---------------------------------------------------------------------------
+loki:
+  deploymentMode: SingleBinary
+
+  loki:
+    auth_enabled: false
+    commonConfig:
+      replication_factor: 1
+    storage:
+      type: filesystem
+    schemaConfig:
+      configs:
+        - from: "2024-01-01"
+          store: tsdb
+          object_store: filesystem
+          schema: v13
+          index:
+            prefix: loki_index_
+            period: 24h
+    limits_config:
+      retention_period: 24h
+      reject_old_samples: true
+      reject_old_samples_max_age: 24h
+      ingestion_rate_mb: 8
+      ingestion_burst_size_mb: 16
+    compactor:
+      retention_enabled: true
+      delete_request_store: filesystem
+    analytics:
+      reporting_enabled: false
+
+  singleBinary:
+    replicas: 1
+    persistence:
+      enabled: true
+      size: 2Gi
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 512Mi
+
+  backend:
+    replicas: 0
+  read:
+    replicas: 0
+  write:
+    replicas: 0
+  chunksCache:
+    enabled: false
+  resultsCache:
+    enabled: false
+
+  gateway:
+    enabled: true
+    resources:
+      requests:
+        cpu: 20m
+        memory: 32Mi
+      limits:
+        memory: 64Mi
+
+  test:
+    enabled: false
+  lokiCanary:
+    enabled: false
+  monitoring:
+    selfMonitoring:
+      enabled: false
+    serviceMonitor:
+      enabled: false
+
+# ---------------------------------------------------------------------------
+# grafana/alloy — DaemonSet node log agent → Loki
+# Scrapes container logs via Kubernetes API (no host filesystem mounts).
+# ---------------------------------------------------------------------------
+alloy:
+  controller:
+    type: daemonset
+    # Collect only pods on this node when running as DaemonSet.
+    hostNetwork: false
+
+  alloy:
+    # Chart already injects HOSTNAME=spec.nodeName; do not add extraEnv HOSTNAME
+    # (duplicate key breaks Argo structured-merge ComparisonError).
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        memory: 256Mi
+    configMap:
+      create: true
+      content: |-
+        discovery.kubernetes "pods" {
+          role = "pod"
+
+          selectors {
+            role  = "pod"
+            field = "spec.nodeName=" + env("HOSTNAME")
+          }
+        }
+
+        discovery.relabel "pod_logs" {
+          targets = discovery.kubernetes.pods.targets
+
+          rule {
+            source_labels = ["__meta_kubernetes_namespace"]
+            target_label  = "namespace"
+          }
+
+          rule {
+            source_labels = ["__meta_kubernetes_pod_name"]
+            target_label  = "pod"
+          }
+
+          rule {
+            source_labels = ["__meta_kubernetes_pod_container_name"]
+            target_label  = "container"
+          }
+
+          rule {
+            source_labels = ["__meta_kubernetes_pod_label_app_kubernetes_io_name"]
+            target_label  = "app"
+          }
+        }
+
+        loki.source.kubernetes "pod_logs" {
+          targets    = discovery.relabel.pod_logs.output
+          forward_to = [loki.process.pod_logs.receiver]
+        }
+
+        loki.process "pod_logs" {
+          stage.static_labels {
+            values = {
+              cluster     = "local-k3s",
+              environment = "local",
+            }
+          }
+
+          forward_to = [loki.write.default.receiver]
+        }
+
+        loki.write "default" {
+          endpoint {
+            url = "http://homie-monitoring-loki-gateway.monitoring.svc.cluster.local:80/loki/api/v1/push"
+          }
+        }
+
+  rbac:
+    create: true
+    # Chart defaults already include pods/pods/log/namespaces for loki.source.kubernetes.

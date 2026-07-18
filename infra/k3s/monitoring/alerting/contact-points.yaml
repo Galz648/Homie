@@ -1,0 +1,11 @@
+apiVersion: 1
+contactPoints:
+  - name: Slack Grafana
+    receivers:
+      - uid: slack-grafana-k3s
+        type: slack
+        settings:
+          token: $SLACK_BOT_TOKEN
+          recipient: $SLACK_CHANNEL_ID_GRAFANA
+          username: Grafana
+          icon_emoji: ':grafana:'

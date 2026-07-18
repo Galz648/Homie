@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: homie-monitoring
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Galz648/Homie.git
+    # Staging branch is the Argo sync source.
+    targetRevision: infra
+    path: infra/k3s/monitoring
+    helm:
+      valueFiles:
+        - values.yaml
+        - values-slack.yaml
+      # Chart dependencies resolved by repo-server (helm dependency build).
+      # Slack bot token / channel IDs: Secret monitoring/grafana-slack (out of band).
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+      # CRDs from kube-prometheus-stack need SSA on first install.
+      - ServerSideApply=true
+  ignoreDifferences: []

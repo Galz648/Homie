@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: homie-ci
+  labels:
+    app.kubernetes.io/part-of: homie
+    homie.io/lane: ci

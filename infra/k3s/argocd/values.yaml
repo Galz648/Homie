@@ -1,0 +1,146 @@
+# Homie k3s Argo CD (namespace: argocd).
+# Umbrella key matches Chart.yaml dependency name.
+# Sized for a single-node droplet / local k3d — no ingress (Tailscale + port-forward).
+# No secrets committed — initial admin password comes from the chart-generated Secret.
+
+argo-cd:
+  global:
+    # Used in UI links / notifications; access is via port-forward, not this DNS.
+    domain: argocd.homie.local
+
+  crds:
+    install: true
+    keep: true
+
+  # Port-forward / ClusterIP only — skip TLS termination at the server.
+  configs:
+    params:
+      server.insecure: "true"
+    cm:
+      # Reconcile a bit less aggressively on a small node.
+      timeout.reconciliation: 180s
+
+  # Local admin from argocd-initial-admin-secret; no SSO yet.
+  dex:
+    enabled: false
+
+  redis-ha:
+    enabled: false
+
+  # Slack OutOfSync / SyncFailed → #homie-alerts-argocd (secret out-of-band).
+  # Apply: scripts/apply-argocd-slack-secret.sh then ./install.sh
+  notifications:
+    enabled: true
+    # Port-forward UI; links in Slack are informational only.
+    argocdUrl: https://argocd.homie.local
+    secret:
+      # Token stays out of git — mirror Grafana grafana-slack pattern.
+      create: false
+      name: argocd-notifications-secret
+    notifiers:
+      service.slack: |
+        token: $slack-token
+    subscriptions:
+      - recipients:
+          - slack:homie-alerts-argocd
+        triggers:
+          - on-sync-status-outofsync
+          - on-sync-failed
+    templates:
+      template.app-sync-status-outofsync: |
+        message: |
+          {{if eq .serviceType "slack"}}:warning:{{end}} Application *{{.app.metadata.name}}* is OutOfSync (git ≠ live).
+          Sync: {{.app.status.sync.status}} · Health: {{.app.status.health.status}}
+          Repo: {{.app.spec.source.repoURL}} @ {{.app.spec.source.targetRevision}}
+          Details: {{.context.argocdUrl}}/applications/{{.app.metadata.name}}
+        slack:
+          attachments: |
+            [{
+              "title": "{{.app.metadata.name}} — OutOfSync",
+              "title_link": "{{.context.argocdUrl}}/applications/{{.app.metadata.name}}",
+              "color": "#f4c030",
+              "fields": [
+                {"title": "Sync", "value": "{{.app.status.sync.status}}", "short": true},
+                {"title": "Health", "value": "{{.app.status.health.status}}", "short": true},
+                {"title": "Revision", "value": "{{.app.status.sync.revision}}", "short": false}
+              ]
+            }]
+      template.app-sync-failed: |
+        message: |
+          {{if eq .serviceType "slack"}}:exclamation:{{end}} Sync *failed* for *{{.app.metadata.name}}*.
+          {{.app.status.operationState.message}}
+          Details: {{.context.argocdUrl}}/applications/{{.app.metadata.name}}?operation=true
+        slack:
+          attachments: |
+            [{
+              "title": "{{.app.metadata.name}} — SyncFailed",
+              "title_link": "{{.context.argocdUrl}}/applications/{{.app.metadata.name}}?operation=true",
+              "color": "#E96D76",
+              "fields": [
+                {"title": "Sync", "value": "{{.app.status.sync.status}}", "short": true},
+                {"title": "Phase", "value": "{{.app.status.operationState.phase}}", "short": true},
+                {"title": "Message", "value": "{{.app.status.operationState.message}}", "short": false}
+              ]
+            }]
+    triggers:
+      trigger.on-sync-status-outofsync: |
+        - description: Application desired git manifests ≠ live cluster
+          oncePer: app.status.sync.revision
+          send:
+            - app-sync-status-outofsync
+          when: app.status.sync.status == 'OutOfSync'
+      trigger.on-sync-failed: |
+        - description: Application syncing has failed
+          oncePer: app.status.operationState?.syncResult?.revision
+          send:
+            - app-sync-failed
+          when: app.status.operationState != nil and app.status.operationState.phase in ['Error', 'Failed']
+    resources:
+      requests:
+        cpu: 25m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+
+  applicationSet:
+    enabled: false
+
+  controller:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        memory: 512Mi
+
+  repoServer:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 256Mi
+
+  redis:
+    resources:
+      requests:
+        cpu: 25m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+
+  server:
+    replicas: 1
+    service:
+      type: ClusterIP
+    ingress:
+      enabled: false
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 256Mi
+
+  # Single replica is enough for one-node k3s.
+  # (chart defaults already use 1 for most components)

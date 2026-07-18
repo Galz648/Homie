@@ -1,0 +1,7 @@
+{
+  "stage": "plan_gate",
+  "iteration": 1,
+  "last_gate": "awaiting_plan_approved",
+  "branch": "infra",
+  "notes": "SPEC + packs scaffolded; CF deploy removed; awaiting human plan approval then k3d install"
+}

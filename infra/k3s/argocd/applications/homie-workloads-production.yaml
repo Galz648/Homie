@@ -1,0 +1,24 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: homie-workloads-production
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Galz648/Homie.git
+    # Prefer a dedicated `production` branch once cutover starts; staging works
+    # for reviewing the overlay before the lane is live on the droplet.
+    targetRevision: infra
+    path: infra/k3s/overlays/production
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: homie-production
+  # Manual sync — do NOT apply this Application until capacity allows a prod lane
+  # (see docs/k3s-production-readiness.md). Creating the App object is optional.
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+  ignoreDifferences: []

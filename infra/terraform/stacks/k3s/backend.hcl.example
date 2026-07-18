@@ -1,0 +1,18 @@
+# Copy to backend.hcl (gitignored) and fill in your Spaces bucket.
+# Create the bucket once in the DO control panel (or doctl); enable versioning.
+#
+#   cp backend.hcl.example backend.hcl
+#   terraform init -backend-config=backend.hcl
+#
+# Migrating from local state (operator laptop that already applied this stack):
+#   1. Backup: cp terraform.tfstate terraform.tfstate.pre-remote.bak
+#   2. terraform init -backend-config=backend.hcl -migrate-state
+#   3. Confirm plan is clean: terraform plan
+#
+# Credentials: Spaces access key → AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY
+# (or use a shared credentials file). Never commit backend.hcl with secrets.
+
+bucket   = "homie-tfstate" # change if your bucket name differs
+endpoint = "https://fra1.digitaloceanspaces.com"
+# Optional if bucket is not in fra1:
+# endpoint = "https://nyc3.digitaloceanspaces.com"

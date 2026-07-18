@@ -1,0 +1,343 @@
+{
+  "$schema": "https://github.com/ksimback/looper/schema/loop.resolved.v1.json",
+  "compiled_at": "2026-07-18T09:33:12+00:00",
+  "council": [],
+  "council_by_id": {},
+  "criteria_by_id": {
+    "ci-plumbing": {
+      "check": [
+        "python3",
+        "looper-homie-infra/scripts/check-ci-plumbing.py"
+      ],
+      "description": "ci-lane + WorkflowTemplate stubs + argo-ci.yml present",
+      "expect": "exit_zero",
+      "id": "ci-plumbing",
+      "timeout_sec": 300,
+      "type": "programmatic"
+    },
+    "homie-named": {
+      "check": [
+        "python3",
+        "looper-homie-infra/scripts/check-homie-named.py"
+      ],
+      "description": "Platform packs use Homie release names, not clinic-*",
+      "expect": "exit_zero",
+      "id": "homie-named",
+      "timeout_sec": 300,
+      "type": "programmatic"
+    },
+    "install-scripts": {
+      "check": [
+        "python3",
+        "looper-homie-infra/scripts/check-install-scripts.py"
+      ],
+      "description": "Three install.sh scripts exist and default to Homie releases",
+      "expect": "exit_zero",
+      "id": "install-scripts",
+      "timeout_sec": 300,
+      "type": "programmatic"
+    },
+    "k3s-ready": {
+      "check": [
+        "python3",
+        "looper-homie-infra/scripts/check-k3s-ready.py"
+      ],
+      "description": "Local kubectl reports at least one Ready node",
+      "expect": "exit_zero",
+      "id": "k3s-ready",
+      "timeout_sec": 300,
+      "type": "programmatic"
+    },
+    "operator-signoff": {
+      "id": "operator-signoff",
+      "prompt": "Operator confirms local platform packs install cleanly, SPEC/README are accurate, app code was untouched, and no DigitalOcean apply was done.\n",
+      "type": "human"
+    },
+    "plan-approved": {
+      "id": "plan-approved",
+      "prompt": "Operator approved infra/SPEC.md and loop-workspace/plan.md: local k3s platform + CI plumbing, Homie-named packs, CF deploy stays retired, no DO apply.\n",
+      "type": "human"
+    },
+    "plan-packages": {
+      "check": [
+        "python3",
+        "looper-homie-infra/scripts/check-plan-packages.py"
+      ],
+      "description": "plan.md has packages with id/deps/parallel_group/worktree/ac_command",
+      "expect": "exit_zero",
+      "id": "plan-packages",
+      "timeout_sec": 300,
+      "type": "programmatic"
+    },
+    "platform-up": {
+      "check": [
+        "python3",
+        "looper-homie-infra/scripts/check-platform-up.py"
+      ],
+      "description": "monitoring, argocd, argo namespaces have Ready pods",
+      "expect": "exit_zero",
+      "id": "platform-up",
+      "timeout_sec": 300,
+      "type": "programmatic"
+    },
+    "spec-sections": {
+      "check": [
+        "python3",
+        "looper-homie-infra/scripts/check-spec-sections.py"
+      ],
+      "description": "infra/SPEC.md has required headings",
+      "expect": "exit_zero",
+      "id": "spec-sections",
+      "timeout_sec": 300,
+      "type": "programmatic"
+    },
+    "tree-present": {
+      "check": [
+        "python3",
+        "looper-homie-infra/scripts/check-tree-present.py"
+      ],
+      "description": "Required infra/ paths exist",
+      "expect": "exit_zero",
+      "id": "tree-present",
+      "timeout_sec": 300,
+      "type": "programmatic"
+    }
+  },
+  "execution": {
+    "isolation": "current_workspace",
+    "mode": "in_session",
+    "side_effects": {
+      "duplicate_action_check": true,
+      "notes": "Repo edits under infra/ and looper-homie-infra/ are in scope after plan approval. Creating/starting local k3d and helm installs need one operator approval at that step. Commit, push, and any terraform apply / cloud create require explicit approval. Do not modify Homie-Website or app paths.\n",
+      "require_approval": true,
+      "requires_approval": true
+    }
+  },
+  "gates": {
+    "delivery_gate": {
+      "criteria": [
+        "tree-present",
+        "homie-named",
+        "install-scripts",
+        "ci-plumbing",
+        "k3s-ready",
+        "platform-up",
+        "operator-signoff"
+      ],
+      "max_revisions": 3,
+      "members": [],
+      "verdict_policy": "revise_until_clean",
+      "verdict_source": "human",
+      "when": "after_each_delivery"
+    },
+    "plan_gate": {
+      "criteria": [
+        "plan-approved",
+        "plan-packages",
+        "spec-sections"
+      ],
+      "max_revisions": 3,
+      "members": [],
+      "verdict_policy": "revise_until_clean",
+      "verdict_source": "human",
+      "when": "after_plan"
+    }
+  },
+  "goal": {
+    "anti_goals": [
+      "Restoring Cloudflare / Alchemy deploy or Homie-Website GHA preview/publish",
+      "Adding Homie product features or Facebook scraper (does not exist yet)",
+      "Containerizing Homie-Website for this loop",
+      "terraform apply or DigitalOcean droplet create",
+      "Committing secrets, Slack tokens, or filled secrets.auto.tfvars",
+      "Commit/push without explicit operator approval",
+      "Shared cluster with clinic-reminder-system",
+      "Copying clinic domain workloads (WAHA, Temporal, clinic-api)",
+      "Wiring Argo CI to run real Homie app test suites before they exist"
+    ],
+    "context_sources": [
+      {
+        "file": "loop-workspace/inputs/homie-infra-plan.md"
+      },
+      {
+        "file": "loop-workspace/inputs/clinic-adaptation-notes.md"
+      },
+      {
+        "file": "README.md"
+      }
+    ],
+    "definition_of_done": "(1) infra/SPEC.md covers target shape, ownership, lanes, phase-1 platform + CI plumbing, IaC-first secrets, success criteria, CF deploy retired; (2) infra/README.md is the operator map (k3d up, install order, port-forwards, CI); (3) loop-workspace/plan.md lists packages with id/deps/parallel_group/worktree/ac_command; (4) infra tree exists with TF stub + base stub + three overlays + monitoring + argocd + argo-workflows + ci-lane; (5) Homie WorkflowTemplate stubs + .github/workflows/argo-ci.yml present; (6) local k3s/k3d node Ready; (7) monitoring, argocd, and argo namespaces have Ready pods from Homie-named releases; (8) no clinic-* release names remain in Homie packs; (9) operator human signoff; (10) state.json stage=chapter_done.\n",
+    "statement": "Stand up Homie-named local k3s platform infrastructure on Docker Desktop (k3d / local k3s). Produce infra/SPEC.md and an operator README, scaffold infra/terraform/stacks/k3s (stub only \u2014 do not apply) and infra/k3s/{base stub, overlays/{local,staging,production}, monitoring, argocd, platform/argo-workflows, platform/ci-lane}. Add Homie-named WorkflowTemplate stubs and a thin root .github/workflows/argo-ci.yml that submits Workflows (local k3d context first). Install monitoring, Argo CD, and Argo Workflows via Homie-named install.sh scripts. Do not restore Cloudflare/Alchemy deploy. Do not containerize product code. Do not terraform-apply DigitalOcean in this loop.\n",
+    "verification": [
+      {
+        "id": "plan-approved",
+        "prompt": "Operator approved infra/SPEC.md and loop-workspace/plan.md: local k3s platform + CI plumbing, Homie-named packs, CF deploy stays retired, no DO apply.\n",
+        "type": "human"
+      },
+      {
+        "check": [
+          "python3",
+          "looper-homie-infra/scripts/check-ci-plumbing.py"
+        ],
+        "description": "ci-lane + WorkflowTemplate stubs + argo-ci.yml present",
+        "expect": "exit_zero",
+        "id": "ci-plumbing",
+        "timeout_sec": 300,
+        "type": "programmatic"
+      },
+      {
+        "check": [
+          "python3",
+          "looper-homie-infra/scripts/check-plan-packages.py"
+        ],
+        "description": "plan.md has packages with id/deps/parallel_group/worktree/ac_command",
+        "expect": "exit_zero",
+        "id": "plan-packages",
+        "timeout_sec": 300,
+        "type": "programmatic"
+      },
+      {
+        "check": [
+          "python3",
+          "looper-homie-infra/scripts/check-spec-sections.py"
+        ],
+        "description": "infra/SPEC.md has required headings",
+        "expect": "exit_zero",
+        "id": "spec-sections",
+        "timeout_sec": 300,
+        "type": "programmatic"
+      },
+      {
+        "check": [
+          "python3",
+          "looper-homie-infra/scripts/check-tree-present.py"
+        ],
+        "description": "Required infra/ paths exist",
+        "expect": "exit_zero",
+        "id": "tree-present",
+        "timeout_sec": 300,
+        "type": "programmatic"
+      },
+      {
+        "check": [
+          "python3",
+          "looper-homie-infra/scripts/check-homie-named.py"
+        ],
+        "description": "Platform packs use Homie release names, not clinic-*",
+        "expect": "exit_zero",
+        "id": "homie-named",
+        "timeout_sec": 300,
+        "type": "programmatic"
+      },
+      {
+        "check": [
+          "python3",
+          "looper-homie-infra/scripts/check-install-scripts.py"
+        ],
+        "description": "Three install.sh scripts exist and default to Homie releases",
+        "expect": "exit_zero",
+        "id": "install-scripts",
+        "timeout_sec": 300,
+        "type": "programmatic"
+      },
+      {
+        "check": [
+          "python3",
+          "looper-homie-infra/scripts/check-k3s-ready.py"
+        ],
+        "description": "Local kubectl reports at least one Ready node",
+        "expect": "exit_zero",
+        "id": "k3s-ready",
+        "timeout_sec": 300,
+        "type": "programmatic"
+      },
+      {
+        "check": [
+          "python3",
+          "looper-homie-infra/scripts/check-platform-up.py"
+        ],
+        "description": "monitoring, argocd, argo namespaces have Ready pods",
+        "expect": "exit_zero",
+        "id": "platform-up",
+        "timeout_sec": 300,
+        "type": "programmatic"
+      },
+      {
+        "id": "operator-signoff",
+        "prompt": "Operator confirms local platform packs install cleanly, SPEC/README are accurate, app code was untouched, and no DigitalOcean apply was done.\n",
+        "type": "human"
+      }
+    ]
+  },
+  "host": {
+    "cli": "claude-code",
+    "invoke": [
+      "claude"
+    ],
+    "model": "in-session",
+    "notes": "Run in this Cursor session via RUN_IN_SESSION.md. Human-only council \u2014 no cross-vendor model egress.\n",
+    "timeout_sec": 1800,
+    "tools": [
+      "terminal",
+      "file"
+    ]
+  },
+  "loop_control": {
+    "budget": {
+      "wall_clock_min": 240
+    },
+    "max_iterations": 15,
+    "no_progress": {
+      "action": "stop",
+      "max_stalled_iterations": 2,
+      "signals": [
+        "same delivery gate failure repeats",
+        "proposal to containerize Homie-Website or Alchemy",
+        "terraform apply / DO droplet proposed as required for this loop",
+        "clinic-* release names left in Homie packs",
+        "delivery artifact has no material change"
+      ]
+    },
+    "stop_conditions": [
+      "All delivery criteria pass and state.json stage=chapter_done",
+      "Same blocker twice within no-progress window \u2192 stop and ask human",
+      "max_iterations or wall_clock exceeded \u2192 stop with partial state"
+    ]
+  },
+  "meta": {
+    "created": "2026-07-18",
+    "description": "Local k3s platform + CI plumbing for Homie on Docker Desktop (k3d): monitoring, Argo CD, Argo Workflows, ci-lane, thin argo-ci GHA under infra/. Cloudflare/Alchemy deploy retired on the infra branch.\n",
+    "name": "homie-local-k3s-infra"
+  },
+  "observability": {
+    "checkpoint_granularity": "gate",
+    "run_log": "looper-homie-infra/loop-workspace/run-log.md",
+    "state_file": "state.json",
+    "state_path": "looper-homie-infra/loop-workspace/state.json"
+  },
+  "privacy": {
+    "egress": [],
+    "redaction_globs": [
+      ".env",
+      ".env.*",
+      "secrets/**",
+      "**/*.key",
+      "**/secrets.auto.tfvars",
+      "**/*secret*.yaml",
+      "!**/*.example.yaml",
+      "!**/*.tfvars.example"
+    ]
+  },
+  "source": "/Users/galzafar/Documents/GitHub/Homie/looper-homie-infra/loop.yaml",
+  "version": 1,
+  "workspace": {
+    "dir": "./loop-workspace",
+    "layout": [
+      "plan.md",
+      "delivery-{n}.md",
+      "state.json",
+      "run-log.md",
+      "looper-homie-infra/loop-workspace/run-log.md"
+    ]
+  }
+}

@@ -1,0 +1,61 @@
+# Homie Argo Workflows — single-node k3s / k3d defaults.
+# Chart: argo/argo-workflows (https://github.com/argoproj/argo-helm)
+# No public exposure — Server ClusterIP + port-forward only.
+# Argo CD remains the deploy sync path; this pack is CI/jobs only.
+
+images:
+  pullPolicy: IfNotPresent
+
+crds:
+  install: true
+  keep: true
+  # Minified CRDs avoid the heavy full-CRD install Job on small nodes.
+  full: false
+
+controller:
+  # Single-node droplet — keep replicas minimal.
+  replicas: 1
+  rbac:
+    create: true
+  metrics:
+    enabled: false
+  telemetry:
+    enabled: false
+  workflowNamespaces:
+    - argo
+    - default
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+server:
+  enabled: true
+  replicas: 1
+  serviceType: ClusterIP
+  # Phase 3 PoC: open UI via port-forward with --auth-mode=server off (client).
+  # Do not expose Ingress/LB without auth.
+  secure: false
+  authModes:
+    - server
+  ingress:
+    enabled: false
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+workflow:
+  serviceAccount:
+    create: true
+    name: argo-workflow
+  rbac:
+    create: true
+
+useDefaultArtifactRepo: false
