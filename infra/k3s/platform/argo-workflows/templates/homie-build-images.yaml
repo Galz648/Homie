@@ -1,5 +1,4 @@
-# Build fb-scrape-worker → Zot. Pin step runs from operator machine after Succeeded
-# (or add github-ci-ssh later for in-cluster pin like clinic).
+# Build fb-scrape-worker → Zot. Optional in-cluster pin when Secret github-ci-ssh exists.
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
 metadata:
@@ -30,6 +29,12 @@ spec:
             template: clone
         - - name: build-worker
             template: kaniko
+            arguments:
+              parameters:
+                - name: short-sha
+                  value: "{{steps.clone.outputs.parameters.short-sha}}"
+        - - name: pin-overlay
+            template: pin-overlay
             arguments:
               parameters:
                 - name: short-sha
@@ -100,3 +105,66 @@ spec:
           limits:
             cpu: "2"
             memory: 5Gi
+
+    # Pin scaffold: no-ops unless /ssh/id_ed25519 is mounted from Secret github-ci-ssh.
+    # Never kubectl set image — pin must land in git for Argo Sync.
+    - name: pin-overlay
+      inputs:
+        parameters:
+          - name: short-sha
+      container:
+        image: alpine/git:2.47.2
+        workingDir: /work
+        command: [sh, -c]
+        args:
+          - |
+            set -euo pipefail
+            SHORT="{{inputs.parameters.short-sha}}"
+            TAG="staging-${SHORT}"
+            if [[ ! -f /ssh/id_ed25519 ]]; then
+              echo "skip pin: Secret github-ci-ssh not mounted — operator must commit chore(k3s): pin ${TAG}"
+              exit 0
+            fi
+            apk add --no-cache openssh-client ca-certificates >/dev/null
+            mkdir -p /root/.ssh
+            cp /ssh/id_ed25519 /root/.ssh/id_ed25519
+            chmod 600 /root/.ssh/id_ed25519
+            ssh-keyscan -t ed25519,rsa github.com >> /root/.ssh/known_hosts 2>/dev/null || true
+            rm -rf pin-repo
+            GIT_SSH_COMMAND="ssh -i /root/.ssh/id_ed25519 -o IdentitiesOnly=yes" \
+              git clone --depth 1 --branch staging \
+                git@github.com:Galz648/Homie.git pin-repo
+            cd pin-repo
+            KUST=infra/k3s/overlays/staging/kustomization.yaml
+            sed -i "s/newTag: .*/newTag: ${TAG}/" "$KUST"
+            git config user.email "homie-ci@local"
+            git config user.name "homie-build-images"
+            git add "$KUST"
+            if git diff --cached --quiet; then
+              echo "pin already ${TAG}"
+              exit 0
+            fi
+            git commit -m "chore(k3s): pin staging fb-scrape-worker image to zot ${TAG}"
+            GIT_SSH_COMMAND="ssh -i /root/.ssh/id_ed25519 -o IdentitiesOnly=yes" \
+              git push origin HEAD:staging
+            echo "ok: pushed pin ${TAG} — Argo Sync next (never kubectl set image)"
+        volumeMounts:
+          - name: work
+            mountPath: /work
+          - name: github-ci-ssh
+            mountPath: /ssh
+            readOnly: true
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            memory: 512Mi
+      volumes:
+        - name: github-ci-ssh
+          secret:
+            secretName: github-ci-ssh
+            optional: true
+            items:
+              - key: id_ed25519
+                path: id_ed25519
