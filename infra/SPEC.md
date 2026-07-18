@@ -74,11 +74,13 @@ Phase 1 includes:
 ## Out of scope
 
 - Restoring Alchemy / Cloudflare preview-publish workflows
-- Containerizing Homie-Website or Facebook fetchers (fetcher does not exist yet)
-- Real Homie unit/e2e suites inside Argo
+- Containerizing Homie-Website or the Facebook Playwright **worker** (host Bun for now)
+- Real Homie unit/e2e suites inside Argo Workflows CI
 - `terraform apply` / DigitalOcean create (until explicitly approved)
-- clinic domain workloads (WAHA, Temporal, etc.)
+- clinic domain workloads (WAHA, clinic Temporal, etc.)
 - Infisical / External Secrets / Zot (optional later)
+
+**In scope for W6a-e2e (local overlay):** scrape Postgres + Temporal Deployments in `homie` ns (`infra/k3s/base/scrape-postgres`, `scrape-temporal`), exposed on the host via k3d LB ports `54329` / `7233` / `8233`.
 
 ## IaC-first
 

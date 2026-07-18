@@ -1,0 +1,18 @@
+{
+  "iteration": 5,
+  "phase": "awaiting-operator-merge-pass",
+  "merge_policy": "defer until operator pass",
+  "substrate": "k3s (homie ns) + host Bun worker",
+  "fb_account": "operator personal",
+  "online_e2e_group": "35819517694",
+  "packages_merged": [],
+  "worktrees": {
+    "local-postgres": { "branch": "fb-e2e/local-postgres", "ac": "pass", "merged": false, "runner": "bun run check:postgres" },
+    "temporal-local": { "branch": "fb-e2e/temporal-local", "ac": "pass", "merged": false, "runner": "bun run check:temporal" },
+    "session-ops": { "branch": "fb-e2e/session-ops", "ac": "pass", "merged": false, "runner": "bun run check:session-ops" },
+    "scrape-pipeline": { "branch": "fb-e2e/scrape-pipeline", "ac": "pass", "merged": false, "runner": "bun run check:pipeline" },
+    "e2e-mocks": { "branch": "fb-e2e/e2e-mocks", "ac": "pass", "merged": false, "runner": "bun run check:e2e-mocks" },
+    "e2e-online": { "branch": "fb-e2e/e2e-online", "ac": "pass", "merged": false, "runner": "bun run check:e2e-online" }
+  },
+  "blocker": "operator: say pass to merge packages into infra"
+}

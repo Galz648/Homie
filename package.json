@@ -6,9 +6,12 @@
   "scripts": {
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:migrate:precommit": "bash scripts/db-migrate-precommit.sh",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "db:seed": "bun run scripts/seed.ts"
+    "db:migrate:local": "bun scripts/local-db/migrate.ts",
+    "db:seed": "bun run scripts/seed.ts",
+    "prepare": "husky"
   },
   "dependencies": {
     "dotenv": "^17.4.2",
@@ -17,6 +20,7 @@
   },
   "devDependencies": {
     "drizzle-kit": "^0.31.4",
+    "husky": "^9.1.7",
     "typescript": "^5.8.3"
   }
 }

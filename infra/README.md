@@ -23,13 +23,30 @@ kubectl config use-context k3d-homie-local
 kubectl get nodes
 ```
 
-Lane namespaces (stubs — no app Deployments yet):
+Lane namespaces + local scrape e2e (Postgres + Temporal in `homie`):
 
 ```bash
 kubectl apply -k infra/k3s/overlays/local
-kubectl apply -k infra/k3s/platform/ci-lane
+kubectl -n homie rollout status deploy/scrape-postgres --timeout=120s
+kubectl -n homie rollout status deploy/scrape-temporal --timeout=180s
 ```
 
+Host ports (k3d loadbalancer, set by `k3s-local-up.sh`):
+
+| Service | Host |
+|---------|------|
+| scrape Postgres | `127.0.0.1:54329` |
+| Temporal gRPC | `127.0.0.1:7233` |
+| Temporal UI | `127.0.0.1:8233` |
+
+```bash
+# schema (Drizzle-only)
+DATABASE_URL=postgresql://homie:homie@127.0.0.1:54329/homie bun scripts/local-db/migrate.ts
+# AC runners (from scrapers/facebook)
+cd scrapers/facebook && bun run check:postgres && bun run check:temporal
+```
+
+Do **not** use Docker Compose for scrape e2e Postgres/Temporal — k3s owns those.
 ## Install platform packs (order)
 
 ```bash

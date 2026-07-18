@@ -1,0 +1,67 @@
+# Homie Facebook scrape (TypeScript + Temporal + Playwright)
+
+Auth probe + scrape pipeline + Bun AC runners. One Temporal workflow = one Facebook group.
+
+Local e2e substrate is **k3s** (`homie` ns): scrape Postgres + Temporal — not Docker Compose.
+
+## Groups config
+
+Edit [`src/groups.ts`](./src/groups.ts):
+
+```ts
+export const facebookGroups: FacebookGroup[] = [
+  { id: "35819517694", enabled: true },
+];
+```
+
+## Local k3s setup
+
+```bash
+./scripts/k3s-local-up.sh
+kubectl apply -k infra/k3s/overlays/local
+cd scrapers/facebook && bun install && bunx playwright install chromium
+bun run check:postgres   # migrate + scrape_cursors
+bun run check:temporal   # gRPC :7233
+```
+
+| Host port | Service |
+|-----------|---------|
+| `127.0.0.1:54329` | scrape Postgres (`DATABASE_URL`) |
+| `127.0.0.1:7233` | Temporal gRPC (`TEMPORAL_ADDRESS`) |
+| `127.0.0.1:8233` | Temporal UI |
+
+Secrets (never commit):
+
+- `~/.config/homie/slack.env` — `SLACK_BOT_TOKEN`, `SLACK_RUNTIME_ERRORS_CHANNEL_ID`
+- `~/.config/homie/facebook_state.json` — `bun run renew` or `bun run import-chrome-session`
+
+## AC runners (Bun / TypeScript)
+
+```bash
+bun run check:postgres
+bun run check:temporal
+bun run check:session-ops
+bun run check:pipeline
+bun run check:e2e-mocks
+bun run check:e2e-online
+```
+
+## Run worker (host)
+
+```bash
+DATABASE_URL=postgresql://homie:homie@127.0.0.1:54329/homie \
+TEMPORAL_ADDRESS=127.0.0.1:7233 \
+bun run worker
+```
+
+Task queue: `homie-fb-scrape`.
+
+## Slack runtime errors
+
+Auth failures post to `#homie-runtime-errors` via `formatRuntimeErrorMessage` /
+`formatAuthFailureMessage` in [`src/slackNotify.ts`](./src/slackNotify.ts)
+(fallback notification line + Block Kit body: What / Where / Evidence / Next).
+
+## Session renew
+
+See [`docs/session-renew.md`](./docs/session-renew.md).

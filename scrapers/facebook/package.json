@@ -1,0 +1,38 @@
+{
+  "name": "@homie/fb-scrape",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "worker": "tsx src/worker.ts",
+    "renew": "tsx src/renewSession.ts",
+    "import-chrome-session": "tsx src/importChromeSession.ts",
+    "signal-cookies-renewed": "tsx scripts/signal-cookies-renewed.ts",
+    "typecheck": "tsc --noEmit",
+    "test:e2e-mocks": "vitest run --config vitest.config.ts",
+    "check:postgres": "tsx scripts/checkLocalPostgres.ts",
+    "check:temporal": "tsx scripts/checkTemporal.ts",
+    "check:session-ops": "tsx scripts/checkSessionOps.ts",
+    "check:pipeline": "tsx scripts/checkScrapePipeline.ts",
+    "check:e2e-mocks": "tsx scripts/checkE2eMocks.ts",
+    "check:e2e-online": "tsx scripts/checkE2eOnline.ts",
+    "show:cursors": "tsx scripts/showScrapeCursors.ts"
+  },
+  "dependencies": {
+    "@temporalio/activity": "^1.11.7",
+    "@temporalio/client": "^1.11.7",
+    "@temporalio/worker": "^1.11.7",
+    "@temporalio/workflow": "^1.11.7",
+    "chrome-cookies-secure": "^3.0.2",
+    "dotenv": "^17.4.2",
+    "keytar": "^7.9.0",
+    "playwright": "^1.51.0",
+    "postgres": "^3.4.9"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.3",
+    "vitest": "^4.1.10"
+  }
+}

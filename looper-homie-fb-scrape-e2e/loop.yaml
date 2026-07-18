@@ -1,0 +1,207 @@
+version: 1
+meta:
+  name: homie-fb-scrape-e2e
+  description: >
+    Local e2e Facebook scrape: Postgres + Temporal + Playwright, reusable
+    cookie renew scripts, mock tests + online AC. Parallel worktrees under
+    .worktrees/; merge to infra only after operator pass.
+  author: looper-pattern-library
+  created: 2026-07-18
+
+goal:
+  statement: >
+    Achieve the goal in inputs/goal.md for the repository at
+    /Users/galzafar/Documents/GitHub/Homie by decomposing work into disjoint
+    packages. Every package forks from root branch infra into its own git
+    worktree under /Users/galzafar/Documents/GitHub/Homie/.worktrees, has
+    non-overlapping write_paths within its parallel_group, and a verifiable
+    ac_command. When a package's acceptance criteria pass, wait for explicit
+    operator merge pass, then merge its branch into infra and remove its
+    worktree. Produce PARALLEL-REPORT.md listing each package id, write_paths,
+    AC command + exit evidence, merge commit, and worktree removal confirmation.
+  context_sources:
+    - file: ./inputs/goal.md
+    - file: ./loop-workspace/plan.md
+    - cmd: "git -C /Users/galzafar/Documents/GitHub/Homie status -sb"
+      timeout_sec: 60
+    - cmd: "git -C /Users/galzafar/Documents/GitHub/Homie branch --show-current"
+      timeout_sec: 60
+    - cmd: "git -C /Users/galzafar/Documents/GitHub/Homie worktree list"
+      timeout_sec: 60
+  definition_of_done: >
+    plan.md lists >=2 packages with id/deps/parallel_group/worktree/branch/
+    write_paths/ac_command; same-group write_paths are disjoint;
+    PARALLEL-REPORT.md records every package merged with AC pass evidence and
+    worktree removed; infra contains all package changes; no open worktrees
+    remain for this loop's package ids; no TBD placeholders; merges only after
+    operator explicit pass.
+  anti_goals:
+    - Editing overlapping write_paths in the same parallel_group without a plan revise
+    - Force-pushing infra
+    - Merging to infra without operator pass
+    - Leaving worktrees around after a successful merge
+    - Declaring a package done without a passing ac_command
+    - Committing secrets, facebook_state.json, or Slack tokens
+    - Online AC that skips live Facebook when cookies are available
+  verification:
+    - id: plan-packages
+      type: programmatic
+      description: plan.md packages have required fields
+      check:
+        - python3
+        - scripts/check-plan-packages.py
+        - loop-workspace/plan.md
+      expect: exit_zero
+    - id: disjoint-paths
+      type: programmatic
+      description: write_paths disjoint within each parallel_group
+      check:
+        - python3
+        - scripts/check-disjoint-paths.py
+        - loop-workspace/plan.md
+      expect: exit_zero
+    - id: report-schema
+      type: programmatic
+      description: PARALLEL-REPORT.md has per-package merge + AC evidence
+      check:
+        - python3
+        - scripts/check-parallel-report.py
+        - loop-workspace/PARALLEL-REPORT.md
+      expect: exit_zero
+    - id: worktrees-cleaned
+      type: programmatic
+      description: No leftover worktrees for planned package ids
+      check:
+        - python3
+        - scripts/check-worktrees-cleaned.py
+        - /Users/galzafar/Documents/GitHub/Homie
+        - loop-workspace/plan.md
+      expect: exit_zero
+    - id: plan-disjoint-sound
+      type: judge
+      rubric: >
+        Judge plan.md against inputs/goal.md. Every package must be necessary
+        for the goal or explicitly deferred; write_paths within each
+        parallel_group must be plausibly non-interfering; deps must not create
+        cycles; each ac_command must verify that package's outcome; session-ops
+        must include reusable renew/signal scripts; both mock and online e2e
+        packages must exist. Verdict revise if splits are fake, AC is vibes-only,
+        or merge-without-operator-pass is implied.
+    - id: merges-complete
+      type: judge
+      rubric: >
+        Judge PARALLEL-REPORT.md and git reality on infra. Every planned
+        package that was not cancelled must show AC pass evidence, operator
+        merge pass noted, a merge commit (or ff) onto infra, and worktree
+        removal. Verdict revise if merges happened without pass, AC skipped,
+        or worktrees remain.
+    - id: operator-merge-pass
+      type: human
+      prompt: >
+        Before merging any package branch into infra, the operator must
+        explicitly say pass (or approve that package merge). Do not merge
+        until then.
+
+host:
+  cli: claude
+  model: default
+  invoke: ["claude", "-p"]
+  timeout_sec: 1800
+
+council:
+  - id: judge-1
+    role: judge
+    cli: claude
+    model: default
+    invoke: ["claude", "-p"]
+    timeout_sec: 600
+    scope: [plan, delivery]
+    local: false
+
+gates:
+  plan_gate:
+    when: after_plan
+    members: [judge-1]
+    verdict_policy: revise_until_clean
+    verdict_source: judge-1
+    criteria: [plan-packages, disjoint-paths, plan-disjoint-sound]
+    max_revisions: 3
+  delivery_gate:
+    when: after_each_delivery
+    members: [judge-1]
+    verdict_policy: revise_until_clean
+    verdict_source: judge-1
+    criteria:
+      - plan-packages
+      - disjoint-paths
+      - report-schema
+      - worktrees-cleaned
+      - merges-complete
+      - operator-merge-pass
+    max_revisions: 3
+
+loop_control:
+  max_iterations: 20
+  budget:
+    usd: 10.0
+    tokens: 3000000
+    wall_clock_min: 180
+  no_progress:
+    max_stalled_iterations: 2
+    signals:
+      - same write_paths conflict repeats
+      - worktree add fails repeatedly without changing approach
+      - PARALLEL-REPORT.md has no material change after revise
+      - force-push to root branch proposed
+      - merge attempted without operator pass
+    action: stop
+  human_checkpoints:
+    - "before merge to infra: wait for operator pass (per package)"
+  stop_conditions:
+    - delivery_gate passes clean on PARALLEL-REPORT.md
+    - max_iterations reached
+    - same blocker repeats for 2 iterations
+    - any budget cap exceeded
+
+execution:
+  mode: in_session
+  isolation: worktree
+  side_effects:
+    requires_approval: true
+    duplicate_action_check: true
+    notes: >
+      Creates git worktrees and branches under
+      /Users/galzafar/Documents/GitHub/Homie/.worktrees from infra.
+      Merges into infra ONLY after operator explicit pass; then removes
+      worktrees. Never force-push. Push/PR optional and requires explicit
+      approval. If macOS git hangs, kill stale git check-ignore watchers
+      before worktree operations.
+
+observability:
+  state_file: state.json
+  run_log: run-log.md
+  checkpoint_granularity: gate
+
+privacy:
+  egress:
+    - to: judge-1
+      sends: [plan, parallel-report, package-diffs]
+      redact:
+        - ".env"
+        - ".env.*"
+        - "secrets/**"
+        - "**/*.key"
+        - "**/secrets.auto.tfvars"
+        - "**/facebook_state.json"
+        - "**/.config/homie/**"
+      consent: required
+
+workspace:
+  dir: ./loop-workspace
+  layout:
+    - plan.md
+    - "delivery-{n}.md"
+    - "review-{n}.md"
+    - PARALLEL-REPORT.md
+    - state.json
+    - run-log.md

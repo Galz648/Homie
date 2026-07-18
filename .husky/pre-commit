@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+# Pre-commit gate — keep this fast and env-independent.
+# DB migrations are NOT run here; see docs/workstreams.md (W5 / migrate timing).
+# Add lint/typecheck/drift checks here as they land.
+:
