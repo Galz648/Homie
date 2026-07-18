@@ -1,0 +1,47 @@
+# Facebook external-service mock for staging CI (clinic mock shape).
+# Placeholder image until a Homie facebook-mock Dockerfile lands (W6).
+# Health: GET / → 200 (http-echo).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: facebook-mock
+  labels:
+    app.kubernetes.io/name: facebook-mock
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: facebook-mock
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: facebook-mock
+    spec:
+      containers:
+        - name: facebook-mock
+          image: hashicorp/http-echo:1.0.0
+          imagePullPolicy: IfNotPresent
+          args:
+            - "-text=homie-facebook-mock-ok"
+            - "-listen=:8080"
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 20m
+              memory: 32Mi
+            limits:
+              memory: 128Mi

@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: facebook-mock
+  labels:
+    app.kubernetes.io/name: facebook-mock
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: facebook-mock
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
