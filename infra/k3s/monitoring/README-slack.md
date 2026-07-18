@@ -8,11 +8,17 @@
 | Staging tip poller | `SLACK_CI_POLL_CHANNEL_ID` | `#homie-alerts-ci-poll` |
 | Runtime errors (production) | `SLACK_RUNTIME_ERRORS_CHANNEL_ID` | `#homie-runtime-errors` |
 | Runtime errors (staging) | `SLACK_STAGING_RUNTIME_ERRORS_CHANNEL_ID` | `#homie-runtime-errors-staging` |
-| New postings (production) | `SLACK_NEW_POSTINGS_CHANNEL_ID` | `#homie-new-postings` |
-| New postings (staging) | `SLACK_STAGING_NEW_POSTINGS_CHANNEL_ID` | `#homie-new-postings-staging` |
+| Raw postings — scrape (production) | `SLACK_RAW_POSTINGS_CHANNEL_ID` | `#homie-raw-postings` (`C0BJB6QHUPK`) |
+| Raw postings — scrape (staging) | `SLACK_STAGING_RAW_POSTINGS_CHANNEL_ID` | `#homie-raw-postings-staging` (`C0BJ60HRSF7`) |
+| Listings ingest (production) | `SLACK_INGEST_LISTINGS_CHANNEL_ID` | `#homie-listings-ingest` (`C0BJ60HS2GM`) |
+| Listings ingest (staging) | `SLACK_STAGING_INGEST_LISTINGS_CHANNEL_ID` | `#homie-listings-ingest-staging` (`C0BJ79767B8`) |
 | Slack Temporal (deferred) | `SLACK_TEMPORAL_CHANNEL_ID` | `#homie-alerts-temporal` |
 
-Lane secrets (`./scripts/apply-homie-slack-secret.sh staging|production`) write only that lane’s runtime-error + new-postings IDs into `homie-slack`. Staging never falls back to production channels.
+Lane secrets (`./scripts/apply-homie-slack-secret.sh staging|production`) write only that lane's runtime-error + raw-postings + ingest-listings IDs into `homie-slack`. Staging never falls back to production channels.
+
+`fb-scrape-worker` (Temporal scrape activities) posts to the **raw** channel — one message per new Facebook post, before extraction. `homie-ingest` posts to the **ingest** channel — one message per listing upserted into `apartment_listings`, with the Facebook post link + image links. These are deliberately separate channels so raw scrape volume doesn't drown out validated listing writes.
+
+The old `SLACK_*_NEW_POSTINGS_CHANNEL_ID` names are still read as a fallback for the raw-postings channel during the migration window — prefer setting the new `SLACK_*_RAW_POSTINGS_CHANNEL_ID` names going forward; `apply-homie-slack-secret.sh` now requires them.
 
 **Provisioned Grafana rules (via `values-slack.yaml`):** `NodeMemoryLow` — free memory
 `< 15%` for 5m (`node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes`) → Slack Grafana.

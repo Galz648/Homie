@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "vitest";
 import {
-  resolveNewPostingsChannelId,
+  resolveRawPostingsChannelId,
   resolveRuntimeErrorsChannelId,
 } from "../src/config.js";
 
@@ -57,10 +57,12 @@ describe("resolveRuntimeErrorsChannelId", () => {
   });
 });
 
-describe("resolveNewPostingsChannelId", () => {
+describe("resolveRawPostingsChannelId", () => {
   const keys = [
     "HOMIE_LANE",
     "HOMIE_ENV",
+    "SLACK_RAW_POSTINGS_CHANNEL_ID",
+    "SLACK_STAGING_RAW_POSTINGS_CHANNEL_ID",
     "SLACK_NEW_POSTINGS_CHANNEL_ID",
     "SLACK_STAGING_NEW_POSTINGS_CHANNEL_ID",
   ] as const;
@@ -82,30 +84,57 @@ describe("resolveNewPostingsChannelId", () => {
     }
   }
 
-  test("local/prod uses SLACK_NEW_POSTINGS_CHANNEL_ID", () => {
+  test("local/prod uses SLACK_RAW_POSTINGS_CHANNEL_ID", () => {
     setEnv({
       HOMIE_LANE: "production",
-      SLACK_NEW_POSTINGS_CHANNEL_ID: "C_PROD",
-      SLACK_STAGING_NEW_POSTINGS_CHANNEL_ID: "C_STAGING",
+      SLACK_RAW_POSTINGS_CHANNEL_ID: "C_PROD",
+      SLACK_STAGING_RAW_POSTINGS_CHANNEL_ID: "C_STAGING",
     });
-    expect(resolveNewPostingsChannelId()).toBe("C_PROD");
+    expect(resolveRawPostingsChannelId()).toBe("C_PROD");
   });
 
-  test("staging uses SLACK_STAGING_NEW_POSTINGS_CHANNEL_ID only", () => {
+  test("staging uses SLACK_STAGING_RAW_POSTINGS_CHANNEL_ID only", () => {
     setEnv({
       HOMIE_LANE: "staging",
-      SLACK_NEW_POSTINGS_CHANNEL_ID: "C_PROD",
-      SLACK_STAGING_NEW_POSTINGS_CHANNEL_ID: "C_STAGING",
+      SLACK_RAW_POSTINGS_CHANNEL_ID: "C_PROD",
+      SLACK_STAGING_RAW_POSTINGS_CHANNEL_ID: "C_STAGING",
     });
-    expect(resolveNewPostingsChannelId()).toBe("C_STAGING");
+    expect(resolveRawPostingsChannelId()).toBe("C_STAGING");
   });
 
   test("staging does not fall back to prod channel", () => {
     setEnv({
       HOMIE_ENV: "staging",
-      SLACK_NEW_POSTINGS_CHANNEL_ID: "C_PROD",
-      SLACK_STAGING_NEW_POSTINGS_CHANNEL_ID: undefined,
+      SLACK_RAW_POSTINGS_CHANNEL_ID: "C_PROD",
+      SLACK_STAGING_RAW_POSTINGS_CHANNEL_ID: undefined,
     });
-    expect(resolveNewPostingsChannelId()).toBeUndefined();
+    expect(resolveRawPostingsChannelId()).toBeUndefined();
+  });
+
+  test("falls back to old SLACK_NEW_POSTINGS_CHANNEL_ID during migration (prod)", () => {
+    setEnv({
+      HOMIE_LANE: "production",
+      SLACK_RAW_POSTINGS_CHANNEL_ID: undefined,
+      SLACK_NEW_POSTINGS_CHANNEL_ID: "C_OLD_PROD",
+    });
+    expect(resolveRawPostingsChannelId()).toBe("C_OLD_PROD");
+  });
+
+  test("falls back to old SLACK_STAGING_NEW_POSTINGS_CHANNEL_ID during migration (staging)", () => {
+    setEnv({
+      HOMIE_LANE: "staging",
+      SLACK_STAGING_RAW_POSTINGS_CHANNEL_ID: undefined,
+      SLACK_STAGING_NEW_POSTINGS_CHANNEL_ID: "C_OLD_STAGING",
+    });
+    expect(resolveRawPostingsChannelId()).toBe("C_OLD_STAGING");
+  });
+
+  test("new name takes precedence over old fallback", () => {
+    setEnv({
+      HOMIE_LANE: "production",
+      SLACK_RAW_POSTINGS_CHANNEL_ID: "C_NEW",
+      SLACK_NEW_POSTINGS_CHANNEL_ID: "C_OLD_PROD",
+    });
+    expect(resolveRawPostingsChannelId()).toBe("C_NEW");
   });
 });

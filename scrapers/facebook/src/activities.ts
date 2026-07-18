@@ -151,7 +151,7 @@ export type ScrapeFacebookGroupFeedDeps = {
  *
  * Non-ok reports (crash, empty_suspect, …) post to `#homie-runtime-errors`.
  *
- * On ok + postsNew > 0: posts each new listing to the lane `#homie-new-postings*`
+ * On ok + postsNew > 0: posts each new listing to the lane `#homie-raw-postings*`
  * channel, and returns `newListings` so the workflow can FF-notify the CF Agent.
  */
 export async function scrapeFacebookGroupFeed(
@@ -235,10 +235,10 @@ export async function scrapeFacebookGroupFeed(
   let slackPostingsNotified = 0;
   if (report.status === "ok" && report.postsNew > 0) {
     const token = settings.slackBotToken;
-    const channel = settings.slackNewPostingsChannelId;
+    const channel = settings.slackRawPostingsChannelId;
     if (!token || !channel) {
       log.error(
-        `Scrape found ${report.postsNew} new post(s) but Slack new-postings not configured (SLACK_BOT_TOKEN / SLACK_STAGING_NEW_POSTINGS_CHANNEL_ID for staging, or SLACK_NEW_POSTINGS_CHANNEL_ID)`,
+        `Scrape found ${report.postsNew} new post(s) but Slack raw-postings not configured (SLACK_BOT_TOKEN / SLACK_STAGING_RAW_POSTINGS_CHANNEL_ID for staging, or SLACK_RAW_POSTINGS_CHANNEL_ID)`,
       );
     } else if (newListings.length > 0) {
       for (const listing of newListings) {
@@ -265,7 +265,7 @@ export async function scrapeFacebookGroupFeed(
       }
       if (slackPostingsNotified > 0) {
         log.info(
-          `Posted ${slackPostingsNotified} new listing(s) to Slack new-postings`,
+          `Posted ${slackPostingsNotified} new listing(s) to Slack raw-postings`,
         );
       }
     } else {
@@ -283,7 +283,7 @@ export async function scrapeFacebookGroupFeed(
           }),
         });
         slackPostingsNotified = 1;
-        log.info("Posted scrape batch summary to Slack new-postings");
+        log.info("Posted scrape batch summary to Slack raw-postings");
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         log.error(`failed posting scrape batch summary to Slack: ${msg}`);

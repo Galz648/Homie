@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 # Apply Slack bot + lane channel IDs → Secret for fb-scrape-worker + homie-ingest.
 #
+# Splits scrape (raw) vs ingest onto separate channels per lane:
+#   raw postings   (scrape)  → #homie-raw-postings[-staging]
+#   ingest listings (ingest) → #homie-listings-ingest[-staging]
+#   runtime errors            → #homie-runtime-errors[-staging]
+#
 # Reads ~/.config/homie/slack.env (never commit).
 #
 # Usage:
@@ -33,26 +38,36 @@ if [[ "$LANE" == "staging" ]]; then
     echo "SLACK_STAGING_RUNTIME_ERRORS_CHANNEL_ID required for staging" >&2
     exit 1
   fi
-  if [[ -z "${SLACK_STAGING_NEW_POSTINGS_CHANNEL_ID:-}" ]]; then
-    echo "SLACK_STAGING_NEW_POSTINGS_CHANNEL_ID required for staging" >&2
+  if [[ -z "${SLACK_STAGING_RAW_POSTINGS_CHANNEL_ID:-}" ]]; then
+    echo "SLACK_STAGING_RAW_POSTINGS_CHANNEL_ID required for staging (#homie-raw-postings-staging)" >&2
+    exit 1
+  fi
+  if [[ -z "${SLACK_STAGING_INGEST_LISTINGS_CHANNEL_ID:-}" ]]; then
+    echo "SLACK_STAGING_INGEST_LISTINGS_CHANNEL_ID required for staging (#homie-listings-ingest-staging)" >&2
     exit 1
   fi
   ARGS+=(
     --from-literal=SLACK_STAGING_RUNTIME_ERRORS_CHANNEL_ID="$SLACK_STAGING_RUNTIME_ERRORS_CHANNEL_ID"
-    --from-literal=SLACK_STAGING_NEW_POSTINGS_CHANNEL_ID="$SLACK_STAGING_NEW_POSTINGS_CHANNEL_ID"
+    --from-literal=SLACK_STAGING_RAW_POSTINGS_CHANNEL_ID="$SLACK_STAGING_RAW_POSTINGS_CHANNEL_ID"
+    --from-literal=SLACK_STAGING_INGEST_LISTINGS_CHANNEL_ID="$SLACK_STAGING_INGEST_LISTINGS_CHANNEL_ID"
   )
 else
   if [[ -z "${SLACK_RUNTIME_ERRORS_CHANNEL_ID:-}" ]]; then
     echo "SLACK_RUNTIME_ERRORS_CHANNEL_ID required for production" >&2
     exit 1
   fi
-  if [[ -z "${SLACK_NEW_POSTINGS_CHANNEL_ID:-}" ]]; then
-    echo "SLACK_NEW_POSTINGS_CHANNEL_ID required for production" >&2
+  if [[ -z "${SLACK_RAW_POSTINGS_CHANNEL_ID:-}" ]]; then
+    echo "SLACK_RAW_POSTINGS_CHANNEL_ID required for production (#homie-raw-postings)" >&2
+    exit 1
+  fi
+  if [[ -z "${SLACK_INGEST_LISTINGS_CHANNEL_ID:-}" ]]; then
+    echo "SLACK_INGEST_LISTINGS_CHANNEL_ID required for production (#homie-listings-ingest)" >&2
     exit 1
   fi
   ARGS+=(
     --from-literal=SLACK_RUNTIME_ERRORS_CHANNEL_ID="$SLACK_RUNTIME_ERRORS_CHANNEL_ID"
-    --from-literal=SLACK_NEW_POSTINGS_CHANNEL_ID="$SLACK_NEW_POSTINGS_CHANNEL_ID"
+    --from-literal=SLACK_RAW_POSTINGS_CHANNEL_ID="$SLACK_RAW_POSTINGS_CHANNEL_ID"
+    --from-literal=SLACK_INGEST_LISTINGS_CHANNEL_ID="$SLACK_INGEST_LISTINGS_CHANNEL_ID"
   )
 fi
 

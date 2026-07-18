@@ -9,11 +9,11 @@ export type SlackNotifyConfig = {
 };
 
 /**
- * Lane-aware #homie-new-postings channel.
+ * Lane-aware #homie-listings-ingest channel.
  * Staging never falls back to the production channel.
  * Optional HOMIE_INGEST_SLACK_CHANNEL_ID overrides the lane default.
  */
-export function resolveNewPostingsChannelId(
+export function resolveIngestListingsChannelId(
   env: NodeJS.ProcessEnv = process.env,
 ): string | undefined {
   const explicit = env.HOMIE_INGEST_SLACK_CHANNEL_ID?.trim();
@@ -21,9 +21,46 @@ export function resolveNewPostingsChannelId(
 
   const lane = (env.HOMIE_LANE ?? env.HOMIE_ENV ?? "local").toLowerCase();
   if (lane === "staging") {
-    return env.SLACK_STAGING_NEW_POSTINGS_CHANNEL_ID?.trim() || undefined;
+    return env.SLACK_STAGING_INGEST_LISTINGS_CHANNEL_ID?.trim() || undefined;
   }
-  return env.SLACK_NEW_POSTINGS_CHANNEL_ID?.trim() || undefined;
+  return env.SLACK_INGEST_LISTINGS_CHANNEL_ID?.trim() || undefined;
+}
+
+/** Best-effort Facebook post URL for a listing when a stored `postUrl` isn't available yet. */
+function resolveListingPostUrl(
+  listing: ListingIngestBody & UpsertResult,
+): string {
+  const withUrl = listing as { postUrl?: string };
+  return withUrl.postUrl?.trim() || `https://www.facebook.com/${listing.postId}`;
+}
+
+/** Image CDN URLs for a listing, if the store has populated them. */
+function resolveListingImages(
+  listing: ListingIngestBody & UpsertResult,
+): string[] {
+  return (listing as { images?: string[] }).images ?? [];
+}
+
+/** One mrkdwn Slack message per ingested listing: post link + image links. */
+export function formatIngestListingMessage(
+  listing: ListingIngestBody & UpsertResult,
+): { text: string; body: string } {
+  const action = listing.created ? "created" : "updated";
+  const postUrl = resolveListingPostUrl(listing);
+  const images = resolveListingImages(listing);
+
+  const text = `[Homie][ingest] apartment_listings ${action} postId=${listing.postId}`;
+  const lines = [
+    ":house: *Listing ingested*",
+    `• postId: \`${listing.postId}\``,
+    `• action: \`${action}\``,
+    `• post: ${postUrl}`,
+    images.length > 0
+      ? `• images:\n${images.map((url) => `   • ${url}`).join("\n")}`
+      : "• images: (no images)",
+  ];
+
+  return { text, body: lines.join("\n") };
 }
 
 export function createSlackNotifier(config: SlackNotifyConfig): SlackNotifier {
@@ -33,8 +70,7 @@ export function createSlackNotifier(config: SlackNotifyConfig): SlackNotifier {
     async notifyListingUpsert(
       listing: ListingIngestBody & UpsertResult,
     ): Promise<void> {
-      const action = listing.created ? "created" : "updated";
-      const text = `[Homie][ingest] apartment_listings ${action} postId=${listing.postId}`;
+      const { text, body } = formatIngestListingMessage(listing);
       const resp = await fetchImpl("https://slack.com/api/chat.postMessage", {
         method: "POST",
         headers: {
@@ -44,6 +80,12 @@ export function createSlackNotifier(config: SlackNotifyConfig): SlackNotifier {
         body: JSON.stringify({
           channel: config.channelId,
           text,
+          blocks: [
+            {
+              type: "section",
+              text: { type: "mrkdwn", text: body },
+            },
+          ],
           mrkdwn: true,
         }),
       });

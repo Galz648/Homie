@@ -19,8 +19,12 @@ export type Settings = {
   slackBotToken: string | undefined;
   /** Lane-aware: staging → SLACK_STAGING_RUNTIME_ERRORS_CHANNEL_ID, else prod. */
   slackRuntimeErrorsChannelId: string | undefined;
-  /** Lane-aware: staging → SLACK_STAGING_NEW_POSTINGS_CHANNEL_ID, else prod. */
-  slackNewPostingsChannelId: string | undefined;
+  /**
+   * Raw scrape postings channel (`#homie-raw-postings*`).
+   * Lane-aware: staging → SLACK_STAGING_RAW_POSTINGS_CHANNEL_ID, else prod
+   * SLACK_RAW_POSTINGS_CHANNEL_ID.
+   */
+  slackRawPostingsChannelId: string | undefined;
   /** `local` | `staging` | `production` (from HOMIE_LANE or HOMIE_ENV). */
   lane: string;
   /**
@@ -47,16 +51,30 @@ export function resolveRuntimeErrorsChannelId(
   return env.SLACK_RUNTIME_ERRORS_CHANNEL_ID?.trim() || undefined;
 }
 
-/** Resolve which Slack new-postings channel to use for this lane. */
-export function resolveNewPostingsChannelId(
+/**
+ * Resolve which Slack raw-postings channel (`#homie-raw-postings*`) the
+ * scraper posts to for this lane.
+ *
+ * Prefers the new `SLACK_*_RAW_POSTINGS_CHANNEL_ID` names; falls back to the
+ * old `SLACK_*_NEW_POSTINGS_CHANNEL_ID` names during the migration window.
+ */
+export function resolveRawPostingsChannelId(
   env: NodeJS.ProcessEnv = process.env,
 ): string | undefined {
   const lane = (env.HOMIE_LANE ?? env.HOMIE_ENV ?? "local").toLowerCase();
   if (lane === "staging") {
     // Never fall back to prod channel on staging.
-    return env.SLACK_STAGING_NEW_POSTINGS_CHANNEL_ID?.trim() || undefined;
+    return (
+      env.SLACK_STAGING_RAW_POSTINGS_CHANNEL_ID?.trim() ||
+      env.SLACK_STAGING_NEW_POSTINGS_CHANNEL_ID?.trim() ||
+      undefined
+    );
   }
-  return env.SLACK_NEW_POSTINGS_CHANNEL_ID?.trim() || undefined;
+  return (
+    env.SLACK_RAW_POSTINGS_CHANNEL_ID?.trim() ||
+    env.SLACK_NEW_POSTINGS_CHANNEL_ID?.trim() ||
+    undefined
+  );
 }
 
 export function loadSettings(): Settings {
@@ -80,7 +98,7 @@ export function loadSettings(): Settings {
       join(homedir(), ".config", "homie", "facebook_state.json"),
     slackBotToken: process.env.SLACK_BOT_TOKEN,
     slackRuntimeErrorsChannelId: resolveRuntimeErrorsChannelId(),
-    slackNewPostingsChannelId: resolveNewPostingsChannelId(),
+    slackRawPostingsChannelId: resolveRawPostingsChannelId(),
     lane,
     cfAgentWebhookUrl:
       process.env.HOMIE_CF_AGENT_WEBHOOK_URL?.trim() || undefined,
