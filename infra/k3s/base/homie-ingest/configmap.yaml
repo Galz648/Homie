@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: homie-ingest-env
+  labels:
+    app.kubernetes.io/name: homie-ingest
+    app.kubernetes.io/part-of: homie
+data:
+  PORT: "8080"
+  HOMIE_LANE: staging
+  # Channel for successful apartment_listings writes (set per overlay/lane).
+  HOMIE_INGEST_SLACK_CHANNEL_ID: ""
