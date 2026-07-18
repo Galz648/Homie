@@ -1,5 +1,7 @@
 # Staging tip poller — clinica pattern (alpine/k8s + git ls-remote).
 # Public Homie repo: anonymous HTTPS (no github-ci-ssh / PAT required).
+# On tip change → submit homie-ci-staging only (no image-build until Zot exists).
+# Skip chore(k3s): pin* commits so a future pin loop cannot re-trigger CI.
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -36,6 +38,17 @@ spec:
                   LAST=$(kubectl -n argo get configmap homie-ci-last-sha -o jsonpath='{.data.sha}' 2>/dev/null || true)
                   if [[ "$SHA" == "$LAST" ]]; then
                     echo "no change"
+                    exit 0
+                  fi
+                  rm -rf /tmp/repo
+                  git clone --depth 1 --branch staging \
+                    https://github.com/Galz648/Homie.git /tmp/repo
+                  MSG=$(git -C /tmp/repo log -1 --pretty=%s)
+                  echo "tip message=$MSG"
+                  if [[ "$MSG" == chore\(k3s\):\ pin* ]]; then
+                    kubectl -n argo create configmap homie-ci-last-sha --from-literal=sha="$SHA" -o yaml --dry-run=client \
+                      | kubectl apply -f -
+                    echo "skip pin-only commit"
                     exit 0
                   fi
                   kubectl -n argo create -f - <<EOF

@@ -9,13 +9,13 @@ spec:
   project: default
   source:
     repoURL: https://github.com/Galz648/Homie.git
-    # Staging branch is the Argo sync source for the homie-staging lane.
-    targetRevision: infra
+    # Staging tip is the GitOps source for the staging lane (any overlay drift).
+    targetRevision: staging
     path: infra/k3s/overlays/staging
   destination:
     server: https://kubernetes.default.svc
     namespace: homie-staging
-  # Manual sync until first Healthy + operator signoff.
+  # Manual sync — applies on any overlay change (not image-tags-only).
   syncPolicy:
     syncOptions:
       - CreateNamespace=true

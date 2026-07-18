@@ -1,3 +1,5 @@
+# Primary staging CI — cluster-pull. Clone staging → migrate → facebook mock e2e.
+# Live Facebook / Spaces smoke are NOT part of this gate.
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
 metadata:
@@ -9,7 +11,7 @@ metadata:
 spec:
   entrypoint: staging
   serviceAccountName: argo-workflow
-  activeDeadlineSeconds: 1800
+  activeDeadlineSeconds: 2400
   ttlStrategy:
     secondsAfterSuccess: 7200
     secondsAfterFailure: 14400
@@ -20,21 +22,46 @@ spec:
         accessModes: ["ReadWriteOnce"]
         resources:
           requests:
-            storage: 4Gi
+            storage: 8Gi
   templates:
     - name: staging
-      # Sidecar reaches facebook-mock in homie-staging (clinic socat pattern).
       sidecars:
+        - name: ci-postgres
+          image: postgres:15-alpine
+          env:
+            - name: POSTGRES_USER
+              value: homie
+            - name: POSTGRES_PASSWORD
+              value: homie
+            - name: POSTGRES_DB
+              value: homie
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: pgdata
+              mountPath: /var/lib/postgresql/data
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+        # Remap facebook-mock from homie-staging into the Workflow pod (clinic socat pattern).
         - name: socat-facebook
           image: alpine/socat:1.8.0.0
           command: [socat]
           args:
             - "TCP-LISTEN:8080,fork,reuseaddr"
             - "TCP:facebook-mock.homie-staging.svc:8080"
+      volumes:
+        - name: pgdata
+          emptyDir: {}
       container:
-        image: alpine:3.20
+        image: oven/bun:1.2
         workingDir: /work
         env:
+          - name: DATABASE_URL
+            value: postgresql://homie:homie@127.0.0.1:5432/homie
           - name: FACEBOOK_MOCK_BASE
             value: http://127.0.0.1:8080
           - name: GIT_BRANCH
@@ -42,11 +69,25 @@ spec:
         volumeMounts:
           - name: work
             mountPath: /work
-        command: [sh, -lc]
+        resources:
+          requests:
+            cpu: 250m
+            memory: 1Gi
+          limits:
+            cpu: "2"
+            memory: 4Gi
+        command: [bash, -lc]
         args:
           - |
             set -euo pipefail
-            apk add --no-cache git curl ca-certificates >/dev/null
+            apt-get update -qq
+            apt-get install -y -qq git curl ca-certificates postgresql-client >/dev/null
+            echo "==> wait for ci-postgres"
+            for i in $(seq 1 90); do
+              pg_isready -h 127.0.0.1 -U homie >/dev/null 2>&1 && break
+              sleep 2
+            done
+            pg_isready -h 127.0.0.1 -U homie
             echo "==> wait for facebook-mock sidecar"
             for i in $(seq 1 60); do
               curl -fsS "$FACEBOOK_MOCK_BASE/" >/dev/null 2>&1 && break
@@ -55,10 +96,16 @@ spec:
             curl -fsS "$FACEBOOK_MOCK_BASE/" | grep -q homie-facebook-mock-ok
             echo "==> clone Homie staging"
             git clone --depth 1 --branch staging \
-              https://github.com/Galz648/Homie.git /work/repo \
-              || git clone --depth 1 https://github.com/Galz648/Homie.git /work/repo
+              https://github.com/Galz648/Homie.git /work/repo
             cd /work/repo
-            echo "==> staging CI smoke (facebook mocked)"
-            echo "FACEBOOK_MOCK_BASE=$FACEBOOK_MOCK_BASE"
+            echo "==> bun install (root + facebook)"
+            bun install --frozen-lockfile 2>/dev/null || bun install
+            cd scrapers/facebook
+            bun install --frozen-lockfile 2>/dev/null || bun install
+            cd /work/repo
+            echo "==> drizzle migrate"
+            bun scripts/local-db/migrate.ts
+            echo "==> mock e2e (W7 automated gate)"
+            cd scrapers/facebook
+            bun run test:e2e-mocks
             echo "homie-ci-staging-ok"
-            sleep 1

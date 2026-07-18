@@ -9,8 +9,8 @@ Single-node **k3s** for Homie platform services.
 
 | Stage | Cluster |
 |-------|---------|
-| Now | Local **k3d** on Docker Desktop (`k3d-homie-local`) |
-| Later | DigitalOcean droplet + Tailscale (`infra/terraform/stacks/k3s`) — **not applied yet** |
+| Local | **k3d** on Docker Desktop (`k3d-homie-local`) when present |
+| Droplet | DigitalOcean k3s (`homie-k3s`) — **live**; primary CI + GitOps target |
 
 Product application code (Homie-Website, scrapers) is **out of scope** for phase 1.
 Cloudflare / Alchemy deploy on branch `infra` is **retired**.
@@ -51,7 +51,8 @@ These install **platform** services only — not Homie-Website or product worklo
 | Kustomize | Lane namespaces / future app workloads | `infra/k3s/base`, `overlays/*` |
 | Helm `install.sh` | Monitoring, Argo CD, Argo Workflows | `infra/k3s/monitoring`, `argocd`, `platform/argo-workflows` |
 | Argo CD | Git → cluster sync (manual Sync) | `infra/k3s/argocd/applications/` |
-| CI plumbing | `homie-ci` ns + WorkflowTemplate stubs + thin GHA | `platform/ci-lane`, `.github/workflows/argo-ci.yml` |
+| CI (primary) | Poller + `homie-ci-staging` on droplet | `platform/argo-workflows`, `platform/ci-lane` |
+| CI (secondary) | Thin GHA submit/wait only | `.github/workflows/argo-ci.yml` |
 
 ## Lanes
 
@@ -68,17 +69,18 @@ Phase 1 includes:
 
 1. Monitoring — Prometheus + Grafana + Loki + Alloy (+ Slack docs/examples)
 2. Argo CD — GitOps controller + Homie Application stubs
-3. Argo Workflows — workflow engine + `homie-ci-smoke` template
-4. CI lane scaffold + thin `argo-ci.yml` (submit/wait; no real app suites yet)
+3. Argo Workflows — primary CI (`homie-ci-staging-poll` → mock e2e)
+4. Argo CD Applications — manual Sync of overlays/monitoring from `staging`
+5. Image build / Zot / overlay pin — **deferred** (no Homie app images yet)
 
-## Out of scope
+## Out of scope (for now)
 
 - Restoring Alchemy / Cloudflare preview-publish workflows
 - Containerizing Homie-Website or the Facebook Playwright **worker** (host Bun for now)
-- Real Homie unit/e2e suites inside Argo Workflows CI
-- `terraform apply` / DigitalOcean create (until explicitly approved)
+- GHA as primary CI submit path (`HOMIE_K3S_KUBECONFIG`)
+- Image build → Zot → `chore(k3s): pin*` (poller already skips pin commits)
+- Infisical / External Secrets (optional later)
 - clinic domain workloads (WAHA, clinic Temporal, etc.)
-- Infisical / External Secrets / Zot (optional later)
 
 **In scope for W6a-e2e (local overlay):** scrape Postgres + Temporal Deployments in `homie` ns (`infra/k3s/base/scrape-postgres`, `scrape-temporal`), exposed on the host via k3d LB ports `54329` / `7233` / `8233`.
 

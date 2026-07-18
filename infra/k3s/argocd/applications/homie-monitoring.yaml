@@ -9,8 +9,8 @@ spec:
   project: default
   source:
     repoURL: https://github.com/Galz648/Homie.git
-    # Staging branch is the Argo sync source.
-    targetRevision: infra
+    # Staging tip is the GitOps source for monitoring desired state.
+    targetRevision: staging
     path: infra/k3s/monitoring
     helm:
       valueFiles:

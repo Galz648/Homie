@@ -1,7 +1,7 @@
 # Platform — Argo Workflows (Phase 3)
 
 In-cluster workflow engine — **primary CI** on the droplet (clinic **pull** model).
-**Argo CD stays the deploy sync path.**
+**Argo CD stays the deploy sync path** (any overlay drift; not image-tags-only).
 
 | Item | Default |
 |------|---------|
@@ -10,29 +10,32 @@ In-cluster workflow engine — **primary CI** on the droplet (clinic **pull** mo
 | Chart | `argo/argo-workflows` **1.0.19** (app v4.0.7) |
 | Server | ClusterIP **2746** (port-forward only) |
 | Smoke | `examples/hello-smoke.yaml` |
-| Staging CI | `templates/homie-ci-staging.yaml` + `examples/ci-staging-poll-cronjob.yaml` |
+| Staging CI | `templates/homie-ci-staging.yaml` + poll CronJob |
 
 ## CI model (pull)
 
 ```text
 GitHub branch staging
         ▲
-        │  cluster polls api.github.com (~1m) / clones git
+        │  cluster polls tip (~1m) / clones git
         │
 Argo Workflows ON droplet (PRIMARY)
         │  CronJob homie-ci-staging-poll
         ▼
-WorkflowTemplate homie-ci-staging (+ facebook-mock)
+WorkflowTemplate homie-ci-staging
+  (ephemeral Postgres + facebook-mock → bun test:e2e-mocks)
 ```
 
 **Policy:** no GitHub→cluster kubeconfig for CI submit. Cluster reaches GitHub;
-not the reverse. Optional thin GHA remains secondary only — do **not** use a
-repo kubeconfig secret as the main CI submit path.
+not the reverse. Thin GHA remains secondary only.
 
 | Trigger | Artifact |
 |---------|----------|
-| Staging tip poll (1m) | `examples/ci-staging-poll-{rbac,cronjob}.yaml` (`alpine/k8s` + `git ls-remote`, anon HTTPS) |
-| Manual / smoke | `kubectl -n argo create` from `homie-ci-staging` template |
+| Staging tip poll (1m) | `examples/ci-staging-poll-{rbac,cronjob}.yaml` (`alpine/k8s` + `git ls-remote`) |
+| Pin-only tip | Skipped (`chore(k3s): pin*`) — ready for a future build/pin loop |
+| Manual / smoke | `kubectl -n argo create` from `homie-ci-staging` / `homie-ci-smoke` |
+
+Image build → Zot → overlay pin is **deferred** until Homie ships app container images.
 
 ## Install
 
@@ -40,7 +43,6 @@ repo kubeconfig secret as the main CI submit path.
 cd infra/k3s/platform/argo-workflows
 chmod +x install.sh
 ./install.sh --wait --timeout 10m
-# or: KUBE_CONTEXT=k3d-homie-local ./install.sh --wait
 # droplet: KUBE_CONTEXT=homie-k3s-droplet ./install.sh --wait --timeout 15m
 ```
 
@@ -56,7 +58,7 @@ kubectl -n argo port-forward svc/homie-argo-workflows-server 2746:2746
 | Template | Purpose |
 |----------|---------|
 | `homie-ci-smoke` | Minimal echo smoke |
-| `homie-ci-staging` | Clone staging → hit `facebook-mock` (staging CI) |
+| `homie-ci-staging` | Clone staging → migrate → facebook mock e2e |
 
 ```bash
 kubectl -n argo apply -f templates/homie-ci-staging.yaml
