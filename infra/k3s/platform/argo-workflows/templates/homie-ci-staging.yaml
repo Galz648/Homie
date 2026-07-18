@@ -1,0 +1,64 @@
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: homie-ci-staging
+  namespace: argo
+  labels:
+    app.kubernetes.io/part-of: homie
+    homie.io/smoke: ci-staging
+spec:
+  entrypoint: staging
+  serviceAccountName: argo-workflow
+  activeDeadlineSeconds: 1800
+  ttlStrategy:
+    secondsAfterSuccess: 7200
+    secondsAfterFailure: 14400
+  volumeClaimTemplates:
+    - metadata:
+        name: work
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 4Gi
+  templates:
+    - name: staging
+      # Sidecar reaches facebook-mock in homie-staging (clinic socat pattern).
+      sidecars:
+        - name: socat-facebook
+          image: alpine/socat:1.8.0.0
+          command: [socat]
+          args:
+            - "TCP-LISTEN:8080,fork,reuseaddr"
+            - "TCP:facebook-mock.homie-staging.svc:8080"
+      container:
+        image: alpine:3.20
+        workingDir: /work
+        env:
+          - name: FACEBOOK_MOCK_BASE
+            value: http://127.0.0.1:8080
+          - name: GIT_BRANCH
+            value: staging
+        volumeMounts:
+          - name: work
+            mountPath: /work
+        command: [sh, -lc]
+        args:
+          - |
+            set -euo pipefail
+            apk add --no-cache git curl ca-certificates >/dev/null
+            echo "==> wait for facebook-mock sidecar"
+            for i in $(seq 1 60); do
+              curl -fsS "$FACEBOOK_MOCK_BASE/" >/dev/null 2>&1 && break
+              sleep 2
+            done
+            curl -fsS "$FACEBOOK_MOCK_BASE/" | grep -q homie-facebook-mock-ok
+            echo "==> clone Homie staging"
+            git clone --depth 1 --branch staging \
+              https://github.com/Galz648/Homie.git /work/repo \
+              || git clone --depth 1 https://github.com/Galz648/Homie.git /work/repo
+            cd /work/repo
+            echo "==> staging CI smoke (facebook mocked)"
+            echo "FACEBOOK_MOCK_BASE=$FACEBOOK_MOCK_BASE"
+            echo "homie-ci-staging-ok"
+            sleep 1
