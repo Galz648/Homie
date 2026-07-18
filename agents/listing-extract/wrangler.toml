@@ -1,16 +1,30 @@
-# Cloudflare Worker: listing-extract Agent stub
+# Cloudflare Agent: listing-extract
 #
-# Env vars (wrangler secrets / dashboard — never commit real values):
-#   HOMIE_CF_AGENT_WEBHOOK_SECRET  — Temporal → Agent shared secret
-#   HOMIE_INGEST_BEARER_TOKEN      — Agent → Homie ingest Bearer
+# Secrets (wrangler secret put — never commit):
+#   HOMIE_CF_AGENT_WEBHOOK_SECRET  — Temporal → Agent
+#   HOMIE_INGEST_BEARER_TOKEN      — Agent → Homie ingest
 #   HOMIE_INGEST_URL               — Homie ingest base URL
+#
+# Vars:
 #   HOMIE_CF_AGENT_WEBHOOK_AUTH    — bearer (default) | hmac
 #
-# Postgres is Homie's concern only — this Worker has no DB binding.
+# Hard rule: Agent never binds to Homie Postgres. Homie owns the database.
 
 name = "homie-listing-extract"
 main = "src/index.ts"
-compatibility_date = "2024-11-01"
+compatibility_date = "2026-07-18"
+compatibility_flags = ["nodejs_compat"]
 
 [vars]
 HOMIE_CF_AGENT_WEBHOOK_AUTH = "bearer"
+
+[observability]
+enabled = true
+
+[[durable_objects.bindings]]
+name = "ListingExtractAgent"
+class_name = "ListingExtractAgent"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["ListingExtractAgent"]

@@ -1,25 +1,21 @@
 /**
- * Minimal Cloudflare Worker / Agent stub for listing extraction.
+ * Cloudflare Agent (Agents SDK) for listing extraction.
  *
- * - Verifies Temporal → Agent webhook secret (Bearer or HMAC)
- * - Accepts immediately (fire-and-forget from Temporal's POV)
- * - POSTs structured body to Homie ingest with Bearer token
- *
+ * Temporal → POST /webhooks/:postId → ListingExtractAgent.onRequest
+ * Agent verifies webhook secret, extracts (stub → later LLM), POSTs Homie ingest.
  * No DATABASE_URL / Hyperdrive — Agent never talks to Postgres.
  */
+import { Agent, getAgentByName, routeAgentRequest } from "agents";
 
 export type Env = {
-  /** Shared secret from Temporal worker (`HOMIE_CF_AGENT_WEBHOOK_SECRET`). */
+  ListingExtractAgent: DurableObjectNamespace<ListingExtractAgent>;
   HOMIE_CF_AGENT_WEBHOOK_SECRET: string;
-  /** Bearer token for Homie ingest (`HOMIE_INGEST_BEARER_TOKEN`). */
   HOMIE_INGEST_BEARER_TOKEN: string;
-  /** Homie ingest base URL, e.g. https://ingest.example */
   HOMIE_INGEST_URL: string;
-  /** `bearer` (default) or `hmac` — must match Temporal auth mode. */
   HOMIE_CF_AGENT_WEBHOOK_AUTH?: string;
 };
 
-type AgentRequest = {
+type AgentRequestBody = {
   text: string;
   instructions: string;
   outputSchema?: Record<string, unknown>;
@@ -82,14 +78,12 @@ async function authorizeWebhook(
   return auth === `Bearer ${secret}`;
 }
 
-/**
- * Stub extraction: when postId is present, emit a minimal Homie body.
- * Real LLM extraction would use `text` + `instructions` + `outputSchema`.
- */
-function stubExtract(req: AgentRequest): HomieIngestBody | null {
-  if (!req.postId || req.postId.trim() === "") return null;
+/** Stub extraction until LLM / Think harness is wired. */
+function stubExtract(req: AgentRequestBody, instanceId: string): HomieIngestBody | null {
+  const postId = (req.postId ?? instanceId).trim();
+  if (!postId || postId === "unknown") return null;
   return {
-    postId: req.postId.trim(),
+    postId,
     price: null,
     entryDate: null,
     contactPhone: null,
@@ -102,7 +96,10 @@ async function postHomieIngest(
   env: Env,
   listing: HomieIngestBody,
 ): Promise<Response> {
-  const base = env.HOMIE_INGEST_URL.replace(/\/$/, "");
+  const base = (env.HOMIE_INGEST_URL ?? "").replace(/\/$/, "");
+  if (!base) {
+    throw new Error("HOMIE_INGEST_URL is not set");
+  }
   return fetch(`${base}/ingest/listings`, {
     method: "POST",
     headers: {
@@ -113,53 +110,106 @@ async function postHomieIngest(
   });
 }
 
-export default {
-  async fetch(req: Request, env: Env): Promise<Response> {
-    const url = new URL(req.url);
+/**
+ * One Durable Object Agent instance per Facebook postId (webhook entity).
+ */
+export class ListingExtractAgent extends Agent<Env> {
+  async onRequest(request: Request): Promise<Response> {
+    if (request.method === "GET") {
+      return json(200, { ok: true, agent: "ListingExtractAgent" });
+    }
+    if (request.method !== "POST") {
+      return json(405, { error: "method not allowed" });
+    }
 
-    if (req.method === "GET" && url.pathname === "/healthz") {
+    const bodyText = await request.text();
+    if (!(await authorizeWebhook(request, bodyText, this.env))) {
+      return json(401, { error: "unauthorized" });
+    }
+
+    let parsed: AgentRequestBody;
+    try {
+      parsed = JSON.parse(bodyText) as AgentRequestBody;
+    } catch {
+      return json(400, { error: "invalid JSON body" });
+    }
+
+    if (typeof parsed.text !== "string" || !parsed.text.trim()) {
+      return json(400, { error: "text is required" });
+    }
+    if (typeof parsed.instructions !== "string" || !parsed.instructions.trim()) {
+      return json(400, { error: "instructions is required" });
+    }
+
+    // Prefer body.postId; fall back to Agent instance name (DO id from /webhooks/:postId).
+    const bodyPostId =
+      typeof parsed.postId === "string" ? parsed.postId.trim() : "";
+    const instanceId = bodyPostId || this.name || "unknown";
+    const listing = stubExtract(parsed, instanceId);
+
+    // Accept for Temporal FF; continue ingest off the request path when possible.
+    if (listing) {
+      this.ctx.waitUntil(
+        (async () => {
+          try {
+            const ingestResp = await postHomieIngest(this.env, listing);
+            if (!ingestResp.ok) {
+              const detail = await ingestResp.text().catch(() => "");
+              console.error(
+                JSON.stringify({
+                  level: "error",
+                  service: "listing-extract-agent",
+                  component: "ingest.callback",
+                  code: "dependency_failed",
+                  postId: listing.postId,
+                  status: ingestResp.status,
+                  message: detail.slice(0, 200),
+                }),
+              );
+            }
+          } catch (err) {
+            const message = err instanceof Error ? err.message : String(err);
+            console.error(
+              JSON.stringify({
+                level: "error",
+                service: "listing-extract-agent",
+                component: "ingest.callback",
+                code: "dependency_failed",
+                postId: listing.postId,
+                message,
+              }),
+            );
+          }
+        })(),
+      );
+    }
+
+    return json(202, { ok: true, accepted: true, agent: instanceId });
+  }
+}
+
+/** Worker entry: route webhooks to Agent instances; otherwise Agents SDK routes. */
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    const url = new URL(request.url);
+
+    if (request.method === "GET" && url.pathname === "/healthz") {
       return json(200, { ok: true });
     }
 
-    if (req.method === "POST" && (url.pathname === "/" || url.pathname === "/webhook")) {
-      const bodyText = await req.text();
-      if (!(await authorizeWebhook(req, bodyText, env))) {
-        return json(401, { error: "unauthorized" });
+    // POST /webhooks/:postId → durable Agent instance for that listing
+    if (url.pathname.startsWith("/webhooks/") && request.method === "POST") {
+      const entityId = decodeURIComponent(url.pathname.split("/")[2] || "").trim();
+      if (!entityId) {
+        return json(400, { error: "webhook entity id required" });
       }
-
-      let parsed: AgentRequest;
-      try {
-        parsed = JSON.parse(bodyText) as AgentRequest;
-      } catch {
-        return json(400, { error: "invalid JSON body" });
-      }
-
-      if (typeof parsed.text !== "string" || !parsed.text.trim()) {
-        return json(400, { error: "text is required" });
-      }
-      if (typeof parsed.instructions !== "string" || !parsed.instructions.trim()) {
-        return json(400, { error: "instructions is required" });
-      }
-
-      // Accept immediately so Temporal can return (fire-and-forget).
-      // Extraction + Homie callback continue without blocking the scrape activity.
-      const listing = stubExtract(parsed);
-      if (listing) {
-        // Best-effort callback; stub does not await LLM — just forward shape.
-        const ingestResp = await postHomieIngest(env, listing);
-        if (!ingestResp.ok) {
-          const detail = await ingestResp.text().catch(() => "");
-          console.error(
-            "[listing-extract] Homie ingest failed:",
-            ingestResp.status,
-            detail.slice(0, 200),
-          );
-        }
-      }
-
-      return json(202, { ok: true, accepted: true });
+      const agent = await getAgentByName(env.ListingExtractAgent, entityId);
+      return agent.fetch(request);
     }
 
-    return json(404, { error: "not found" });
+    return (
+      (await routeAgentRequest(request, env)) ||
+      json(404, { error: "not found" })
+    );
   },
-};
+} satisfies ExportedHandler<Env>;

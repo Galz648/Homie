@@ -16,19 +16,22 @@ latency; the Cloudflare Agent must not hold a database credential.
 ### Flow
 
 1. After a successful raw upsert, Temporal activity `notifyListingAgent` POSTs
-   to the Agent webhook and returns on HTTP 2xx (fire-and-forget).
+   to the Cloudflare **Agent** webhook `POST /webhooks/:postId` and returns on
+   HTTP 2xx (fire-and-forget). Routing uses Agents SDK `getAgentByName` →
+   `ListingExtractAgent.onRequest` (Durable Object), not a bare Worker handler.
 2. Agent verifies the webhook secret, extracts fields (LLM or stub), then
-   callbacks Homie ingest with a Bearer service token.
+   callbacks Homie ingest with a Bearer service token (`waitUntil`).
 3. Homie upserts `apartment_listings` by `postId` and notifies Slack.
 
 ### Auth
 
 | Hop | Mechanism | Secret / env |
 |-----|-----------|--------------|
-| Temporal → Agent | Shared secret: `Authorization: Bearer <secret>` (default) or HMAC `X-Homie-Signature: sha256=<hex>` | Worker: `HOMIE_CF_AGENT_WEBHOOK_SECRET`; scrape worker: same value via `HOMIE_CF_AGENT_WEBHOOK_SECRET`. Mode via `HOMIE_CF_AGENT_WEBHOOK_AUTH` = `bearer` \| `hmac`. |
+| Temporal → Agent | Shared secret: `Authorization: Bearer <secret>` (default) or HMAC `X-Homie-Signature: sha256=<hex>` | Agent secrets: `HOMIE_CF_AGENT_WEBHOOK_SECRET`; scrape worker k8s: same. Mode via `HOMIE_CF_AGENT_WEBHOOK_AUTH` = `bearer` \| `hmac`. |
 | Agent → Homie | `Authorization: Bearer <token>` on `POST /ingest/listings` | Agent: `HOMIE_INGEST_BEARER_TOKEN`; Homie ingest Deployment: same token. |
 
 Secrets stay out of git (wrangler secrets / k8s Secrets / `*.example.yaml` only).
+`HOMIE_CF_AGENT_WEBHOOK_URL` should be the Agent origin + `/webhooks` (Temporal appends `/:postId`).
 
 ### Contract shapes
 

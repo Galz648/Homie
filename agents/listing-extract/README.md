@@ -1,15 +1,46 @@
-# listing-extract (Cloudflare Agent stub)
+# listing-extract (Cloudflare Agent)
 
-Minimal Worker that:
+Homie listing extraction **Agent** on the Cloudflare Agents SDK (`agents`
+package) — not a bare Worker `fetch` handler.
 
-1. Verifies the Temporal → Agent webhook secret (`Authorization: Bearer …` or `X-Homie-Signature`)
-2. Accepts the job with `202` (Temporal does not wait for extraction)
-3. POSTs a Homie ingest body to `HOMIE_INGEST_URL/ingest/listings` with `Authorization: Bearer <HOMIE_INGEST_BEARER_TOKEN>`
+## Architecture
+
+- `ListingExtractAgent` extends `Agent` (Durable Object + SQLite)
+- Temporal POSTs ` /webhooks/:postId` → `getAgentByName` → `onRequest`
+- Verifies Temporal → Agent webhook secret (Bearer or HMAC)
+- Returns `202` quickly (fire-and-forget); Homie ingest callback via `waitUntil`
+- POSTs cleaned body to `HOMIE_INGEST_URL/ingest/listings` with Bearer token
 
 ## Hard rule
 
-This Worker **must not** bind Postgres. `wrangler.toml` and config must never mention `DATABASE_URL` or Hyperdrive. The AC script greps for those tokens and fails if found.
+This Agent **must not** bind Postgres. `wrangler.toml` must never mention
+`DATABASE_URL` or Hyperdrive. `scripts/check-listing-ingest-contract.py` greps
+for those tokens.
+
+## Secrets
+
+```bash
+cd agents/listing-extract
+wrangler secret put HOMIE_CF_AGENT_WEBHOOK_SECRET
+wrangler secret put HOMIE_INGEST_BEARER_TOKEN
+wrangler secret put HOMIE_INGEST_URL
+```
+
+Same webhook + ingest Bearer values live in staging k8s
+(`homie-cf-agent-webhook`, `homie-ingest`).
+
+## Deploy
+
+```bash
+cd agents/listing-extract
+bun install
+wrangler deploy
+# Then set scrape worker HOMIE_CF_AGENT_WEBHOOK_URL to
+#   https://<worker>.workers.dev/webhooks
+# Temporal appends /:postId
+```
 
 ## Contract
 
-Request / response shapes live in `contracts/listing-ingest/`. See ADR `docs/adr/listing-ingest-agent.md`.
+Request / response shapes: `contracts/listing-ingest/`.  
+ADR: `docs/adr/listing-ingest-agent.md`.

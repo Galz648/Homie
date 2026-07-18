@@ -160,6 +160,33 @@ def main() -> int:
     errors.extend(round_trip(INGEST_FIXTURE, INGEST_SCHEMA))
     errors.extend(grep_agent_config_forbidden())
 
+    # Must be an Agents SDK Agent (not a bare Worker fetch-only stub).
+    agent_src = (AGENT / "src" / "index.ts").read_text(encoding="utf-8")
+    for needle in (
+        'from "agents"',
+        "extends Agent",
+        "ListingExtractAgent",
+        "getAgentByName",
+        "onRequest",
+    ):
+        if needle not in agent_src:
+            errors.append(f"Agent src missing Agents SDK marker {needle!r}")
+
+    wrangler = (AGENT / "wrangler.toml").read_text(encoding="utf-8")
+    for needle in (
+        "durable_objects",
+        "ListingExtractAgent",
+        "new_sqlite_classes",
+        "nodejs_compat",
+    ):
+        if needle not in wrangler:
+            errors.append(f"wrangler.toml missing Agent binding marker {needle!r}")
+
+    pkg = load_json(AGENT / "package.json")
+    deps = {**(pkg.get("dependencies") or {}), **(pkg.get("devDependencies") or {})}
+    if "agents" not in deps:
+        errors.append("package.json missing dependency on agents")
+
     # ADR must document both auth hops.
     adr = ADR.read_text(encoding="utf-8")
     for needle in (
@@ -169,6 +196,8 @@ def main() -> int:
         "HOMIE_INGEST_BEARER_TOKEN",
         "DATABASE_URL",
         "Hyperdrive",
+        "ListingExtractAgent",
+        "getAgentByName",
     ):
         if needle not in adr:
             errors.append(f"ADR missing mention of {needle!r}")

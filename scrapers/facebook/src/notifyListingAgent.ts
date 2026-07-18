@@ -87,6 +87,17 @@ function buildAuthHeaders(
   return { Authorization: `Bearer ${secret}` };
 }
 
+function resolveListingAgentWebhookUrl(
+  webhookUrl: string,
+  postId?: string,
+): string {
+  const base = webhookUrl.replace(/\/$/, "");
+  const entity = encodeURIComponent(postId?.trim() || "unknown");
+  if (/\/webhooks\/[^/]+$/i.test(base)) return base;
+  if (/\/webhooks$/i.test(base)) return `${base}/${entity}`;
+  return `${base}/webhooks/${entity}`;
+}
+
 /**
  * POST one listing to the CF Agent webhook. Returns after HTTP accept (2xx).
  * No-ops when `HOMIE_CF_AGENT_WEBHOOK_URL` is unset (local e2e safe).
@@ -124,7 +135,12 @@ export async function notifyListingAgent(
     ...buildAuthHeaders(config.webhookSecret, body, authMode),
   };
 
-  const res = await fetchFn(config.webhookUrl, {
+  const targetUrl = resolveListingAgentWebhookUrl(
+    config.webhookUrl,
+    payload.postId,
+  );
+
+  const res = await fetchFn(targetUrl, {
     method: "POST",
     headers,
     body,

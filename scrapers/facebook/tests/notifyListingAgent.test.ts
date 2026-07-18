@@ -8,7 +8,6 @@ import {
 
 describe("notifyListingAgent", () => {
   afterEach(() => {
-    vi.unstubAllGlobals();
     delete process.env.HOMIE_CF_AGENT_WEBHOOK_URL;
     delete process.env.HOMIE_CF_AGENT_WEBHOOK_SECRET;
     delete process.env.HOMIE_CF_AGENT_WEBHOOK_AUTH;
@@ -53,7 +52,7 @@ describe("notifyListingAgent", () => {
       {
         fetchFn: fetchFn as unknown as typeof fetch,
         config: {
-          webhookUrl: "https://agent.example/webhook",
+          webhookUrl: "https://agent.example",
           webhookSecret: "test-secret",
           authMode: "bearer",
         },
@@ -66,7 +65,7 @@ describe("notifyListingAgent", () => {
     expect(fetchFn).toHaveBeenCalledTimes(1);
 
     const [url, init] = fetchFn.mock.calls[0]!;
-    expect(url).toBe("https://agent.example/webhook");
+    expect(url).toBe("https://agent.example/webhooks/p1");
     expect(init?.method).toBe("POST");
     const headers = init?.headers as Record<string, string>;
     expect(headers["Content-Type"]).toBe("application/json");
@@ -94,7 +93,7 @@ describe("notifyListingAgent", () => {
       {
         fetchFn: fetchFn as unknown as typeof fetch,
         config: {
-          webhookUrl: "https://agent.example/hook",
+          webhookUrl: "https://agent.example",
           webhookSecret: secret,
           authMode: "hmac",
         },
