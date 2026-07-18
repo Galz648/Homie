@@ -1,0 +1,88 @@
+# PreSync: apply Drizzle migrations to lane Postgres before worker pods roll.
+# Re-runs on every Argo sync (BeforeHookCreation deletes the prior Job).
+#
+# Git source of migrations is lane-bound via ConfigMap scrape-db-migrate-env:
+#   staging    → branch staging
+#   production → branch main
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: scrape-db-migrate
+  labels:
+    app.kubernetes.io/name: scrape-db-migrate
+    app.kubernetes.io/part-of: homie
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: scrape-db-migrate
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: oven/bun:1.2
+          envFrom:
+            - configMapRef:
+                name: scrape-db-migrate-env
+            - secretRef:
+                name: homie-database
+          command: [bash, -lc]
+          args:
+            - |
+              set -euo pipefail
+              LANE="${HOMIE_LANE:-}"
+              BRANCH="${HOMIE_GIT_BRANCH:-}"
+              if [[ -z "$LANE" || -z "$BRANCH" || "$LANE" == "unset" || "$BRANCH" == "unset" ]]; then
+                echo "ERROR: HOMIE_LANE and HOMIE_GIT_BRANCH must be set by the overlay ConfigMap" >&2
+                exit 1
+              fi
+              case "$LANE/$BRANCH" in
+                staging/staging|production/main|local/staging)
+                  ;;
+                *)
+                  echo "ERROR: lane/branch mismatch: lane=${LANE} branch=${BRANCH}" >&2
+                  echo "        expected staging→staging, production→main" >&2
+                  exit 1
+                  ;;
+              esac
+              apt-get update -qq
+              apt-get install -y -qq git ca-certificates >/dev/null
+              echo "==> clone Homie branch=${BRANCH} (lane=${LANE})"
+              git clone --depth 1 --branch "$BRANCH" \
+                https://github.com/Galz648/Homie.git /work/repo
+              cd /work/repo
+              echo "==> bun install (drizzle-orm / postgres)"
+              bun install --frozen-lockfile 2>/dev/null || bun install
+              if [[ -z "${DATABASE_URL:-}${DIRECT_URL:-}" ]]; then
+                echo "ERROR: DATABASE_URL/DIRECT_URL missing (secret homie-database)" >&2
+                exit 1
+              fi
+              # Lane safety: production secret must be Supabase; staging must not.
+              case "$LANE" in
+                production)
+                  if [[ "${DATABASE_URL:-}" != *supabase* && "${DIRECT_URL:-}" != *supabase* ]]; then
+                    echo "ERROR: production migrate refuses non-Supabase DATABASE_URL" >&2
+                    exit 1
+                  fi
+                  ;;
+                staging)
+                  if [[ "${DATABASE_URL:-}" == *supabase* || "${DIRECT_URL:-}" == *supabase* ]]; then
+                    echo "ERROR: staging migrate refuses Supabase DATABASE_URL" >&2
+                    exit 1
+                  fi
+                  ;;
+              esac
+              echo "==> drizzle migrate (env=${LANE} git=${BRANCH})"
+              bun scripts/local-db/migrate.ts
+              echo "ok: scrape-db-migrate lane=${LANE} branch=${BRANCH}"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1Gi

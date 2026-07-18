@@ -58,7 +58,7 @@ kubectl -n argo port-forward svc/homie-argo-workflows-server 2746:2746
 | Template | Purpose |
 |----------|---------|
 | `homie-ci-smoke` | Minimal echo smoke |
-| `homie-ci-staging` | Clone staging → migrate → facebook mock e2e |
+| `homie-ci-staging` | Clone staging → drizzle migrate → assert `scrape_cursors` / `raw_facebook_posts` → facebook mock e2e |
 | `homie-build-images` | Kaniko → Zot `homie/fb-scrape-worker:staging-<sha>` |
 
 ```bash

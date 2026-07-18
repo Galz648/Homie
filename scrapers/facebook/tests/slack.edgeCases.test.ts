@@ -1,6 +1,10 @@
 import { describe, expect, test } from "vitest";
-import { probeFacebookAuth } from "../src/activities.js";
+import {
+  probeFacebookAuth,
+  scrapeFacebookGroupFeed,
+} from "../src/activities.js";
 import { fakeSettings } from "./helpers/mockFixtures.js";
+import type { RunReport } from "../src/pipeline/types.js";
 
 describe("slack edge cases", () => {
   test("auth failure with Slack unset → slackNotified=false", async () => {
@@ -100,5 +104,71 @@ describe("slack edge cases", () => {
       },
     );
     expect(bodies[0]).toContain("`throttle`");
+  });
+
+  test("scrape crash with mocked Slack → dependency_failed payload", async () => {
+    const bodies: string[] = [];
+    const crashReport: RunReport = {
+      groupId: "35819517694",
+      status: "crash",
+      stopReason: "ok",
+      postsSeen: 0,
+      postsNew: 0,
+      postsUpserted: 0,
+      coldStart: false,
+      error: 'relation "scrape_cursors" does not exist',
+    };
+
+    const result = await scrapeFacebookGroupFeed(
+      {
+        groupId: "35819517694",
+        groupUrl: "https://www.facebook.com/groups/35819517694",
+        workflowId: "fb-group-35819517694",
+      },
+      {
+        settings: fakeSettings({
+          slackBotToken: "xoxb-test",
+          slackRuntimeErrorsChannelId: "C_RUNTIME",
+        }),
+        run: async () => crashReport,
+        postError: async (args) => {
+          bodies.push(
+            typeof args.message === "string"
+              ? args.message
+              : args.message.body,
+          );
+        },
+      },
+    );
+
+    expect(result.status).toBe("crash");
+    expect(result.slackNotified).toBe(true);
+    expect(bodies).toHaveLength(1);
+    expect(bodies[0]).toContain("facebook.scrape");
+    expect(bodies[0]).toContain("dependency_failed");
+    expect(bodies[0]).toContain("scrape-db-migrate");
+  });
+
+  test("scrape crash with Slack unset → slackNotified=false", async () => {
+    const result = await scrapeFacebookGroupFeed(
+      {
+        groupId: "g-crash",
+        groupUrl: "https://www.facebook.com/groups/g-crash",
+      },
+      {
+        settings: fakeSettings(),
+        run: async () => ({
+          groupId: "g-crash",
+          status: "crash",
+          stopReason: "ok",
+          postsSeen: 0,
+          postsNew: 0,
+          postsUpserted: 0,
+          coldStart: false,
+          error: "boom",
+        }),
+      },
+    );
+    expect(result.slackNotified).toBe(false);
   });
 });

@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: scrape-db-migrate-env
+data:
+  HOMIE_LANE: production
+  HOMIE_GIT_BRANCH: main

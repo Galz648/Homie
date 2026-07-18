@@ -1,0 +1,11 @@
+# Overlay must set HOMIE_LANE + HOMIE_GIT_BRANCH (staging→staging, production→main).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: scrape-db-migrate-env
+  labels:
+    app.kubernetes.io/name: scrape-db-migrate
+    app.kubernetes.io/part-of: homie
+data:
+  HOMIE_LANE: unset
+  HOMIE_GIT_BRANCH: unset

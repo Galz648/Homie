@@ -8,8 +8,10 @@ import { runScrapePipeline } from "./pipeline/runScrape.js";
 import type { RunReport } from "./pipeline/types.js";
 import {
   formatAuthFailureMessage,
+  formatScrapeFailureMessage,
   postRuntimeError,
   shouldAlertAuth,
+  shouldAlertScrape,
   type RuntimeErrorMessage,
 } from "./slackNotify.js";
 
@@ -99,6 +101,21 @@ export async function probeFacebookAuth(
 export type ScrapeGroupActivityInput = {
   groupId: string;
   groupUrl: string;
+  workflowId?: string;
+};
+
+export type ScrapeFacebookGroupFeedDeps = {
+  settings?: Settings;
+  run?: (args: {
+    groupId: string;
+    groupUrl: string;
+    statePath: string;
+  }) => Promise<RunReport>;
+  postError?: (args: {
+    botToken: string;
+    channelId: string;
+    message: RuntimeErrorMessage | string;
+  }) => Promise<void>;
 };
 
 /**
@@ -108,15 +125,20 @@ export type ScrapeGroupActivityInput = {
  * Secret). When `HOMIE_IMAGE_UPLOAD_MODE=spaces`, upsert downloads feed image
  * URLs and PutObject to DO Spaces; Spaces CDN URLs land in
  * `raw_facebook_posts.images`. Local mocks keep mode=`noop`.
+ *
+ * Non-ok reports (crash, empty_suspect, …) post to `#homie-runtime-errors`.
  */
 export async function scrapeFacebookGroupFeed(
   input: ScrapeGroupActivityInput,
-): Promise<RunReport> {
-  const settings = loadSettings();
+  deps: ScrapeFacebookGroupFeedDeps = {},
+): Promise<RunReport & { slackNotified: boolean }> {
+  const settings = deps.settings ?? loadSettings();
+  const run = deps.run ?? runScrapePipeline;
+  const postError = deps.postError ?? postRuntimeError;
   log.info(
     `scrape start group=${input.groupId} imageMode=${process.env.HOMIE_IMAGE_UPLOAD_MODE ?? "noop"}`,
   );
-  const report = await runScrapePipeline({
+  const report = await run({
     groupId: input.groupId,
     groupUrl: input.groupUrl,
     statePath: settings.facebookStatePath,
@@ -124,5 +146,30 @@ export async function scrapeFacebookGroupFeed(
   log.info(
     `scrape done group=${input.groupId} status=${report.status} seen=${report.postsSeen} new=${report.postsNew} stop=${report.stopReason} at=${report.finishedAtIsrael}`,
   );
-  return report;
+
+  let slackNotified = false;
+  if (shouldAlertScrape(report.status)) {
+    const token = settings.slackBotToken;
+    const channel = settings.slackRuntimeErrorsChannelId;
+    if (!token || !channel) {
+      log.error(
+        `Scrape ${report.status} but Slack not configured (SLACK_BOT_TOKEN / SLACK_STAGING_RUNTIME_ERRORS_CHANNEL_ID for staging, or SLACK_RUNTIME_ERRORS_CHANNEL_ID)`,
+      );
+    } else {
+      const message = formatScrapeFailureMessage({
+        report,
+        groupUrl: input.groupUrl,
+        workflowId: input.workflowId,
+      });
+      await postError({
+        botToken: token,
+        channelId: channel,
+        message,
+      });
+      slackNotified = true;
+      log.info(`Posted scrape ${report.status} to Slack runtime-errors`);
+    }
+  }
+
+  return { ...report, slackNotified };
 }

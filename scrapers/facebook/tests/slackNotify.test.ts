@@ -2,7 +2,10 @@ import { describe, expect, test } from "vitest";
 import {
   formatAuthFailureMessage,
   formatRuntimeErrorMessage,
+  formatScrapeFailureMessage,
+  shouldAlertScrape,
 } from "../src/slackNotify.js";
+import type { RunReport } from "../src/pipeline/types.js";
 
 describe("formatRuntimeErrorMessage", () => {
   test("builds fallback text + body with required sections", () => {
@@ -72,5 +75,46 @@ describe("formatAuthFailureMessage", () => {
       },
     });
     expect(msg.body).toContain("`throttle`");
+  });
+});
+
+describe("formatScrapeFailureMessage", () => {
+  const baseReport = (over: Partial<RunReport>): RunReport => ({
+    groupId: "35819517694",
+    status: "crash",
+    stopReason: "ok",
+    postsSeen: 0,
+    postsNew: 0,
+    postsUpserted: 0,
+    coldStart: false,
+    ...over,
+  });
+
+  test("missing relation crash → dependency_failed + migrate next steps", () => {
+    const msg = formatScrapeFailureMessage({
+      report: baseReport({
+        error: 'relation "scrape_cursors" does not exist',
+      }),
+      groupUrl: "https://www.facebook.com/groups/35819517694",
+      workflowId: "fb-group-35819517694",
+      env: "staging",
+    });
+    expect(msg.body).toContain("`facebook.scrape`");
+    expect(msg.body).toContain("`dependency_failed`");
+    expect(msg.body).toContain("scrape-db-migrate");
+    expect(msg.body).toContain("scrape_cursors");
+    expect(shouldAlertScrape("crash")).toBe(true);
+    expect(shouldAlertScrape("ok")).toBe(false);
+  });
+
+  test("empty_suspect → zero_results", () => {
+    const msg = formatScrapeFailureMessage({
+      report: baseReport({
+        status: "empty_suspect",
+        stopReason: "empty_suspect",
+      }),
+      groupUrl: "https://facebook.com/groups/g1",
+    });
+    expect(msg.body).toContain("`zero_results`");
   });
 });

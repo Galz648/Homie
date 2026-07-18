@@ -9,9 +9,8 @@ spec:
   project: default
   source:
     repoURL: https://github.com/Galz648/Homie.git
-    # Prefer a dedicated `production` branch once cutover starts; staging works
-    # for reviewing the overlay before the lane is live on the droplet.
-    targetRevision: staging
+    # Production GitOps + migrate Job clone from main (staging lane uses staging).
+    targetRevision: main
     path: infra/k3s/overlays/production
   destination:
     server: https://kubernetes.default.svc

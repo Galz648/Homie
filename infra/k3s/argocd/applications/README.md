@@ -9,12 +9,12 @@ kubectl apply -f .
 
 | File | Syncs |
 |------|--------|
-| `homie-workloads.yaml` | Kustomize `infra/k3s/overlays/staging` → ns `homie-staging` |
-| `homie-workloads-production.yaml` | Kustomize `infra/k3s/overlays/production` → ns `homie-production` (**do not apply** until capacity — see readiness doc) |
+| `homie-workloads.yaml` | Kustomize `infra/k3s/overlays/staging` → ns `homie-staging` (`targetRevision: staging`) |
+| `homie-workloads-production.yaml` | Kustomize `infra/k3s/overlays/production` → ns `homie-production` (`targetRevision: main`; **do not apply** until capacity) |
 | `homie-monitoring.yaml` | Helm `infra/k3s/monitoring` (`values.yaml` + `values-slack.yaml`) → ns `monitoring` |
 | `repo-homie.yaml` | Git repo registration (public) |
 
-Defaults: `targetRevision: **staging**`, **manual** sync.
+Defaults: staging app → `targetRevision: **staging**`; production app → `**main**`; **manual** sync.
 
 Production Application YAML is in-repo for when the droplet can host a second lane; creating it in the cluster starts syncing workloads — wait for capacity first.
 

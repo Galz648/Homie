@@ -94,8 +94,9 @@ spec:
               sleep 2
             done
             curl -fsS "$FACEBOOK_MOCK_BASE/" | grep -q homie-facebook-mock-ok
-            echo "==> clone Homie staging"
-            git clone --depth 1 --branch staging \
+            BRANCH="${GIT_BRANCH:-staging}"
+            echo "==> clone Homie branch=${BRANCH} (CI lane=staging)"
+            git clone --depth 1 --branch "$BRANCH" \
               https://github.com/Galz648/Homie.git /work/repo
             cd /work/repo
             echo "==> bun install (root + facebook)"
@@ -105,6 +106,16 @@ spec:
             cd /work/repo
             echo "==> drizzle migrate"
             bun scripts/local-db/migrate.ts
+            echo "==> assert scrape schema (fail loud if migrate skipped/broken)"
+            for rel in scrape_cursors raw_facebook_posts; do
+              ok=$(PGPASSWORD=homie psql -h 127.0.0.1 -U homie -d homie -tAc \
+                "SELECT CASE WHEN to_regclass('public.${rel}') IS NULL THEN 'missing' ELSE 'ok' END")
+              if [[ "$ok" != "ok" ]]; then
+                echo "ERROR: relation ${rel} missing after migrate — scrapes will crash (status=crash)" >&2
+                exit 1
+              fi
+              echo "ok: ${rel}"
+            done
             echo "==> mock e2e (W7 automated gate)"
             cd scrapers/facebook
             bun run test:e2e-mocks

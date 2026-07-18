@@ -1,4 +1,5 @@
 import type { AuthProbeResult, AuthStatus } from "./authProbe.js";
+import type { RunReport } from "./pipeline/types.js";
 import { formatIsraelTime } from "./time.js";
 
 /** Stable error codes for #homie-runtime-errors (searchable / filterable). */
@@ -155,7 +156,8 @@ export function formatAuthFailureMessage(args: {
     code,
     summary: authSummary(args.result.status),
     service: "facebook-scraper",
-    env: args.env ?? process.env.HOMIE_ENV ?? "local",
+    env:
+      args.env ?? process.env.HOMIE_ENV ?? process.env.HOMIE_LANE ?? "local",
     workflowId: args.workflowId,
     groupId: args.groupId,
     groupUrl: args.groupUrl,
@@ -220,4 +222,110 @@ export async function postRuntimeError(args: {
 
 export function shouldAlertAuth(status: AuthStatus): boolean {
   return status !== "ok";
+}
+
+function scrapeStatusToCode(
+  status: RunReport["status"],
+  error?: string,
+): RuntimeErrorCode {
+  switch (status) {
+    case "empty_suspect":
+      return "zero_results";
+    case "throttle":
+      return "throttle";
+    case "auth":
+      return "session_expired";
+    case "crash": {
+      const msg = (error ?? "").toLowerCase();
+      if (
+        msg.includes("does not exist") ||
+        msg.includes("econnrefused") ||
+        msg.includes("connection") ||
+        msg.includes("timeout") ||
+        msg.includes("relation ")
+      ) {
+        return "dependency_failed";
+      }
+      return "unhandled";
+    }
+    case "parse":
+      return "unhandled";
+    default:
+      return "unhandled";
+  }
+}
+
+function scrapeSummary(status: RunReport["status"], error?: string): string {
+  switch (status) {
+    case "crash":
+      return error?.includes("does not exist")
+        ? "Scrape crashed — DB schema missing (run drizzle migrate)."
+        : "Scrape crashed with an unhandled error.";
+    case "empty_suspect":
+      return "Scrape finished with zero parseable posts (empty_suspect).";
+    case "throttle":
+      return "Scrape hit throttle / rate limit.";
+    case "auth":
+      return "Scrape aborted — session not usable.";
+    case "parse":
+      return "Scrape failed while parsing the feed.";
+    default:
+      return "Scrape reported a non-ok status.";
+  }
+}
+
+/** True for statuses that should page `#homie-runtime-errors`. */
+export function shouldAlertScrape(status: RunReport["status"]): boolean {
+  return (
+    status === "crash" ||
+    status === "empty_suspect" ||
+    status === "throttle" ||
+    status === "parse" ||
+    status === "auth"
+  );
+}
+
+/** RunReport failure → shared runtime-error template. */
+export function formatScrapeFailureMessage(args: {
+  report: RunReport;
+  groupUrl: string;
+  workflowId?: string;
+  env?: string;
+}): RuntimeErrorMessage {
+  const { report } = args;
+  const code = scrapeStatusToCode(report.status, report.error);
+  return formatRuntimeErrorMessage({
+    component: "facebook.scrape",
+    code,
+    summary: scrapeSummary(report.status, report.error),
+    service: "facebook-scraper",
+    env:
+      args.env ?? process.env.HOMIE_ENV ?? process.env.HOMIE_LANE ?? "local",
+    workflowId: args.workflowId,
+    groupId: report.groupId,
+    groupUrl: args.groupUrl,
+    activity: "scrapeFacebookGroupFeed",
+    evidence: [
+      `status: \`${report.status}\``,
+      `stop: \`${report.stopReason}\``,
+      `seen=${report.postsSeen} new=${report.postsNew}`,
+      ...(report.error ? [`error: ${report.error.slice(0, 280)}`] : []),
+    ],
+    nextSteps:
+      code === "dependency_failed"
+        ? [
+            "Confirm lane Postgres is up (`scrape-postgres`).",
+            "Apply schema: Argo PreSync Job `scrape-db-migrate`, or `bun scripts/local-db/migrate.ts` with lane `DATABASE_URL`.",
+            "Re-trigger the scrape workflow after migrate succeeds.",
+          ]
+        : report.status === "empty_suspect"
+          ? [
+              "Check facebook-mock / live feed for the group.",
+              "Inspect worker logs for parse/selector regressions.",
+            ]
+          : [
+              "Inspect Temporal activity logs for `scrapeFacebookGroupFeed`.",
+              "Re-run after fixing the underlying fault.",
+            ],
+  });
 }

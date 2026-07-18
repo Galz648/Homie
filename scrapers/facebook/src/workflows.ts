@@ -62,6 +62,7 @@ export async function scrapeFacebookGroup(
   const report = await scrapeFacebookGroupFeed({
     groupId: input.groupId,
     groupUrl: input.groupUrl,
+    workflowId: info.workflowId,
   });
 
   return {
