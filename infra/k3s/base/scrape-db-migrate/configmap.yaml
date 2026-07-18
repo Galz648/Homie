@@ -1,4 +1,5 @@
 # Overlay must set HOMIE_LANE + HOMIE_GIT_BRANCH (staging→staging, production→main).
+# Same PreSync wave as the Job so env exists before migrate runs.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -6,6 +7,9 @@ metadata:
   labels:
     app.kubernetes.io/name: scrape-db-migrate
     app.kubernetes.io/part-of: homie
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
 data:
   HOMIE_LANE: unset
   HOMIE_GIT_BRANCH: unset

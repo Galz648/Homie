@@ -318,14 +318,21 @@ export function formatScrapeFailureMessage(args: {
             "Apply schema: Argo PreSync Job `scrape-db-migrate`, or `bun scripts/local-db/migrate.ts` with lane `DATABASE_URL`.",
             "Re-trigger the scrape workflow after migrate succeeds.",
           ]
-        : report.status === "empty_suspect"
+        : report.status === "auth" || code === "session_expired"
           ? [
-              "Check facebook-mock / live feed for the group.",
-              "Inspect worker logs for parse/selector regressions.",
+              "`cd scrapers/facebook && bun run import-chrome-session` (or `bun run renew`)",
+              args.workflowId
+                ? `\`bun run signal-cookies-renewed -- --workflow-id ${args.workflowId}\``
+                : "`bun run signal-cookies-renewed -- --all-running`",
             ]
-          : [
-              "Inspect Temporal activity logs for `scrapeFacebookGroupFeed`.",
-              "Re-run after fixing the underlying fault.",
-            ],
+          : report.status === "empty_suspect"
+            ? [
+                "Check facebook-mock / live feed for the group.",
+                "Inspect worker logs for parse/selector regressions.",
+              ]
+            : [
+                "Inspect Temporal activity logs for `scrapeFacebookGroupFeed`.",
+                "Re-run after fixing the underlying fault.",
+              ],
   });
 }
