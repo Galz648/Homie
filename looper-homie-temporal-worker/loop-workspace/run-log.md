@@ -8,3 +8,5 @@
 - fixed multi-doc kustomize patch → two Service patches
 - check-staging-worker-yaml → pass; check-change-map → pass
 - status: awaiting human delivery-ok signoff
+
+- delivery-ok via user continue; worker YAML on infra e84ef1b; cursor rules b52aba5; chapter_done

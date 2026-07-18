@@ -1,7 +1,7 @@
 {
   "loop": "homie-temporal-worker-k3s",
-  "status": "awaiting_delivery_signoff",
-  "stage": "delivery_gate",
+  "status": "chapter_done",
+  "stage": "chapter_done",
   "iteration": 1,
   "last_gate": "delivery_gate",
   "plan_approved": true,
@@ -19,5 +19,8 @@
     "infra/k3s/base/fb-scrape-worker/",
     "infra/k3s/docker/Dockerfile.fb-scrape-worker",
     "infra/k3s/overlays/staging/kustomization.yaml"
-  ]
+  ],
+  "delivery_ok": true,
+  "delivery_ok_via": "user: continue after commit/push",
+  "final_commit": "e84ef1b+b52aba5"
 }
