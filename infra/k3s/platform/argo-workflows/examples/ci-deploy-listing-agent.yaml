@@ -1,0 +1,29 @@
+# Ad-hoc: kubectl -n argo create -f examples/ci-deploy-listing-agent.yaml
+#
+# Override branch (e.g. feat/cf-agent-ingest) when the Agent is not on staging yet:
+#   kubectl -n argo create -f - <<EOF
+#   apiVersion: argoproj.io/v1alpha1
+#   kind: Workflow
+#   metadata:
+#     generateName: homie-deploy-listing-agent-
+#     namespace: argo
+#   spec:
+#     workflowTemplateRef:
+#       name: homie-deploy-listing-agent
+#     arguments:
+#       parameters:
+#         - name: git-branch
+#           value: feat/cf-agent-ingest
+#   EOF
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: homie-deploy-listing-agent-
+  namespace: argo
+  labels:
+    homie.io/smoke: deploy-listing-agent
+    homie.io/trigger: manual
+    homie.io/component: cf-agent
+spec:
+  workflowTemplateRef:
+    name: homie-deploy-listing-agent
