@@ -1,0 +1,102 @@
+# Build fb-scrape-worker → Zot. Pin step runs from operator machine after Succeeded
+# (or add github-ci-ssh later for in-cluster pin like clinic).
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: homie-build-images
+  namespace: argo
+  labels:
+    app.kubernetes.io/part-of: homie
+    homie.io/smoke: build-images
+spec:
+  entrypoint: main
+  serviceAccountName: argo-workflow
+  activeDeadlineSeconds: 5400
+  ttlStrategy:
+    secondsAfterSuccess: 7200
+    secondsAfterFailure: 14400
+  volumeClaimTemplates:
+    - metadata:
+        name: work
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 16Gi
+  templates:
+    - name: main
+      steps:
+        - - name: clone
+            template: clone
+        - - name: build-worker
+            template: kaniko
+            arguments:
+              parameters:
+                - name: short-sha
+                  value: "{{steps.clone.outputs.parameters.short-sha}}"
+
+    - name: clone
+      outputs:
+        parameters:
+          - name: short-sha
+            valueFrom:
+              path: /work/short-sha
+      container:
+        image: alpine/git:2.47.2
+        workingDir: /work
+        command: [sh, -c]
+        args:
+          - |
+            set -euo pipefail
+            apk add --no-cache ca-certificates >/dev/null
+            rm -rf repo
+            git clone --depth 1 --branch staging \
+              https://github.com/Galz648/Homie.git repo
+            cd repo
+            FULL=$(git rev-parse HEAD)
+            SHORT=$(printf '%s' "$FULL" | cut -c1-7)
+            printf '%s' "$SHORT" > /work/short-sha
+            echo "cloned staging short-sha=$SHORT"
+        volumeMounts:
+          - name: work
+            mountPath: /work
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            memory: 512Mi
+
+    - name: kaniko
+      inputs:
+        parameters:
+          - name: short-sha
+      container:
+        image: gcr.io/kaniko-project/executor:v1.23.2-debug
+        command: [/busybox/sh, -c]
+        args:
+          - |
+            set -euo pipefail
+            SHORT="{{inputs.parameters.short-sha}}"
+            DEST_BASE="homie-zot.zot.svc.cluster.local:5000/homie/fb-scrape-worker"
+            /kaniko/executor \
+              --context=dir:///work/repo \
+              --dockerfile=/work/repo/infra/k3s/docker/Dockerfile.fb-scrape-worker \
+              --destination="${DEST_BASE}:staging-${SHORT}" \
+              --destination="${DEST_BASE}:staging" \
+              --insecure \
+              --insecure-pull \
+              --skip-tls-verify \
+              --verbosity=info
+            echo "pushed fb-scrape-worker staging-${SHORT} + staging"
+            printf '%s' "$SHORT" > /work/built-sha
+        volumeMounts:
+          - name: work
+            mountPath: /work
+        resources:
+          requests:
+            cpu: 500m
+            memory: 2Gi
+          limits:
+            cpu: "2"
+            memory: 5Gi

@@ -4,13 +4,14 @@ namespace: homie-staging
 resources:
   - namespace.yaml
   - ../../base/facebook-mock
+  - ../../base/scrape-postgres
   - ../../base/scrape-temporal
   - ../../base/fb-scrape-worker
 patches:
   - path: patch-temporal-svc-clusterip.yaml
   - path: patch-temporal-ui-svc-clusterip.yaml
-# Image pin stub — future clinic-build-images equivalent rewrites newTag to staging-<sha>.
-# Until Zot exists, Sync expects ImagePullBackOff unless the node has fb-scrape-worker:local.
+  - path: patch-postgres-svc-clusterip.yaml
+# Zot — in-cluster build pins worker image (Argo OutOfSync until Sync).
 images:
   - name: fb-scrape-worker
     newName: zot.local:5000/homie/fb-scrape-worker

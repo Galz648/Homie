@@ -1,0 +1,53 @@
+# Homie Zot — single-node k3s / k3d defaults.
+# Chart: project-zot/zot (https://zotregistry.dev/helm-charts)
+# No public exposure — ClusterIP + port-forward / in-cluster DNS only.
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/project-zot/zot
+  tag: "v2.1.18"
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 5000
+
+ingress:
+  enabled: false
+
+persistence: true
+pvc:
+  create: true
+  storage: 8Gi
+  accessMode: ReadWriteOnce
+  # storageClassName: null  # cluster default (local-path on k3s/k3d)
+
+strategy:
+  type: Recreate
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+mountConfig: true
+configFiles:
+  config.json: |-
+    {
+      "storage": {
+        "rootDirectory": "/var/lib/registry",
+        "dedupe": true,
+        "gc": true
+      },
+      "http": {
+        "address": "0.0.0.0",
+        "port": "5000",
+        "readTimeout": "60s",
+        "writeTimeout": "60s"
+      },
+      "log": { "level": "info" }
+    }

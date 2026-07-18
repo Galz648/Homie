@@ -59,22 +59,14 @@ kubectl -n argo port-forward svc/homie-argo-workflows-server 2746:2746
 |----------|---------|
 | `homie-ci-smoke` | Minimal echo smoke |
 | `homie-ci-staging` | Clone staging → migrate → facebook mock e2e |
+| `homie-build-images` | Kaniko → Zot `homie/fb-scrape-worker:staging-<sha>` |
 
 ```bash
 kubectl -n argo apply -f templates/homie-ci-staging.yaml
+kubectl -n argo apply -f templates/homie-build-images.yaml
 kubectl -n argo apply -f examples/ci-staging-poll-rbac.yaml
 kubectl -n argo apply -f examples/ci-staging-poll-cronjob.yaml
+# Manual build: kubectl -n argo create -f examples/ci-build-images.yaml
 ```
 
-## Smoke
-
-```bash
-kubectl -n argo create -f examples/hello-smoke.yaml
-kubectl -n argo get workflows
-```
-
-## Notes
-
-- Do not enable Ingress/LoadBalancer without auth.
-- Do not replace Argo CD with Workflows.
-- Staging CI needs `facebook-mock` in `homie-staging` (see `infra/k3s/base/facebook-mock`).
+Image build → Zot is live; pin overlay `newTag` from the operator (or add `github-ci-ssh` later for in-cluster pin). Poller skips `chore(k3s): pin*`.

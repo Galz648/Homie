@@ -1,0 +1,12 @@
+# Ad-hoc: kubectl -n argo create -f examples/ci-build-images.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: homie-build-images-
+  namespace: argo
+  labels:
+    homie.io/smoke: build-images
+    homie.io/trigger: manual
+spec:
+  workflowTemplateRef:
+    name: homie-build-images
