@@ -23,6 +23,8 @@ export type Settings = {
 export function loadSettings(): Settings {
   loadOptionalEnv(join(homedir(), ".config", "homie", "slack.env"));
   loadOptionalEnv(join(homedir(), ".config", "homie", "fb-scrape.env"));
+  // Spaces upload env for Temporal scrape activity (`HOMIE_IMAGE_UPLOAD_MODE=spaces`).
+  loadOptionalEnv(join(homedir(), ".config", "homie", "spaces.env"));
 
   return {
     temporalAddress: process.env.TEMPORAL_ADDRESS ?? "localhost:7233",

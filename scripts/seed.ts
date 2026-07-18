@@ -1,38 +1,28 @@
 import "dotenv/config";
-import { createDb, apartmentPosts } from "../Homie-Website/src/db/index.ts";
+import { createDb, rawFacebookPosts } from "../Homie-Website/src/db/index.ts";
 
 // Use direct connection for writes (pooler skips column defaults)
 const db = createDb(process.env.DIRECT_URL ?? process.env.DATABASE_URL!);
 
 const now = new Date();
 
-const [listing] = await db
-  .insert(apartmentPosts)
+const [post] = await db
+  .insert(rawFacebookPosts)
   .values({
     id: crypto.randomUUID(),
-    url: "2br-florentin-tel-aviv",
+    postId: "100000000000001",
+    groupId: "35819517694",
+    url: "https://www.facebook.com/groups/35819517694/posts/100000000000001",
     title: "2BR in Florentin",
     description:
-      "Bright 2-bedroom apartment near Rothschild. Recently renovated, lots of natural light.",
-    rent: 6500,
-    address: "12 Florentin St",
-    city: "Tel Aviv",
-    neighborhood: "Florentin",
-    bedrooms: 2,
-    bathrooms: 1,
-    sizeSqm: 72,
-    floor: 3,
-    totalFloors: 5,
-    furnished: true,
-    listingType: "rent",
-    amenities: ["elevator", "balcony", "ac"],
+      "Bright 2-bedroom apartment near Rothschild. Recently renovated, lots of natural light. ₪6500",
     images: [],
-    status: "active",
+    postedAt: now,
     createdAt: now,
     updatedAt: now,
   })
   .returning();
 
-console.log("Seeded listing:", listing?.id, listing?.title);
+console.log("Seeded raw post:", post?.id, post?.title);
 
 process.exit(0);

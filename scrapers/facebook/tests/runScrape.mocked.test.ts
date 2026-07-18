@@ -13,14 +13,14 @@ describe("runScrapePipeline (mocked Facebook via scrapeFn)", () => {
 
   beforeAll(async () => {
     await sql`DELETE FROM scrape_cursors WHERE "groupId" = ${groupId}`;
-    await sql`DELETE FROM apartment_posts WHERE url LIKE ${"%/groups/mock-e2e/%"}`;
+    await sql`DELETE FROM raw_facebook_posts WHERE "groupId" = ${groupId}`;
   });
 
   afterAll(async () => {
     await sql.end({ timeout: 5 });
   });
 
-  test("upserts drafts and advances watermark without live FB", async () => {
+  test("upserts raw posts and advances watermark without live FB", async () => {
     const report = await runScrapePipeline({
       groupId,
       groupUrl: `https://www.facebook.com/groups/${groupId}`,
@@ -54,10 +54,10 @@ describe("runScrapePipeline (mocked Facebook via scrapeFn)", () => {
     expect(cursor?.lastStatus).toBe("ok");
 
     const posts = await sql`
-      SELECT url, status FROM apartment_posts
-      WHERE url LIKE ${"%/groups/mock-e2e/%"}
+      SELECT "postId", "groupId", url FROM raw_facebook_posts
+      WHERE "groupId" = ${groupId}
     `;
     expect(posts.length).toBe(2);
-    expect(posts.every((p) => p.status === "draft")).toBe(true);
+    expect(posts.every((p) => p.groupId === groupId)).toBe(true);
   });
 });

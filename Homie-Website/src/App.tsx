@@ -1,13 +1,13 @@
 import { useState } from "react";
-import type { ApartmentPost } from "./db/schema.ts";
+import type { RawFacebookPost } from "./db/schema.ts";
 import "./App.css";
 
 function App() {
-  const [listings, setListings] = useState<ApartmentPost[]>([]);
+  const [posts, setPosts] = useState<RawFacebookPost[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const loadListings = async () => {
+  const loadPosts = async () => {
     setLoading(true);
     setError(null);
     try {
@@ -15,11 +15,11 @@ function App() {
       if (!response.ok) {
         throw new Error(`API responded with ${response.status}`);
       }
-      const data = (await response.json()) as ApartmentPost[];
-      setListings(data);
+      const data = (await response.json()) as RawFacebookPost[];
+      setPosts(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Request failed");
-      setListings([]);
+      setPosts([]);
     } finally {
       setLoading(false);
     }
@@ -30,17 +30,17 @@ function App() {
       <h1>Hello, Homie!</h1>
       <p className="subtitle">Vite + React + Drizzle</p>
       <div className="card">
-        <button type="button" onClick={loadListings} disabled={loading}>
-          {loading ? "Loading..." : "Load listings"}
+        <button type="button" onClick={loadPosts} disabled={loading}>
+          {loading ? "Loading..." : "Load posts"}
         </button>
         {error && <p className="error">{error}</p>}
-        {listings.length === 0 && !loading && !error && (
-          <p className="empty">No active listings yet.</p>
+        {posts.length === 0 && !loading && !error && (
+          <p className="empty">No raw Facebook posts yet.</p>
         )}
         <ul className="listings">
-          {listings.map((listing) => (
-            <li key={listing.id}>
-              <strong>{listing.title}</strong> — {listing.city} · ₪{listing.rent}
+          {posts.map((post) => (
+            <li key={post.id}>
+              <strong>{post.title}</strong> — group {post.groupId}
             </li>
           ))}
         </ul>

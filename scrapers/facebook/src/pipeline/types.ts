@@ -14,6 +14,8 @@ export type ScrapedPost = {
   postId: string;
   url: string;
   text: string;
+  /** Facebook CDN (or similar) image URLs from the feed card. */
+  imageUrls?: string[];
   author?: string;
   postedAt?: Date;
 };

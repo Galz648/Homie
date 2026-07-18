@@ -24,7 +24,7 @@ async function main(): Promise<void> {
     "src/pipeline/runScrape.ts",
     "src/pipeline/cursor.ts",
     "src/pipeline/scrapeFeed.ts",
-    "src/pipeline/upsertListings.ts",
+    "src/pipeline/upsertRawPosts.ts",
     "src/pipeline/images.ts",
     "scripts/checkScrapePipeline.ts",
   ];

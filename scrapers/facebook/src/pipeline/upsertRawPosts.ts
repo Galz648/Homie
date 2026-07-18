@@ -8,54 +8,42 @@ function titleFromText(text: string, postId: string): string {
   return `Facebook post ${postId}`;
 }
 
-function guessRent(text: string): number {
-  const m = text.match(/(?:₪|ILS|NIS|ש"?ח)\s*([\d,]+)|([\d,]+)\s*(?:₪|ILS|NIS|ש"?ח)/i);
-  if (!m) return 0;
-  const raw = (m[1] || m[2] || "").replace(/,/g, "");
-  const n = Number(raw);
-  return Number.isFinite(n) ? Math.trunc(n) : 0;
-}
-
 /**
- * Upsert scraped posts into apartment_posts (dedupe by url).
- * FB posts are often unstructured — store as draft with best-effort fields.
+ * Upsert scraped posts into raw_facebook_posts (dedupe by Facebook postId).
  */
 export async function upsertScrapedPosts(
   sql: Sql,
+  groupId: string,
   posts: ScrapedPost[],
 ): Promise<{ upserted: number; newest: ScrapedPost | null }> {
-    let upserted = 0;
+  let upserted = 0;
 
   for (const post of posts) {
-    const images = await persistListingImages([]);
+    const images = await persistListingImages(post.imageUrls ?? []);
     const title = titleFromText(post.text || "", post.postId);
     const description =
       post.text?.trim() ||
       `(imported from Facebook group post ${post.postId})`;
-    const rent = guessRent(post.text || "");
 
     const rows = await sql`
-      INSERT INTO apartment_posts (
-        url, title, description, rent, currency, address, city,
-        bedrooms, bathrooms, amenities, images, status
+      INSERT INTO raw_facebook_posts (
+        "postId", "groupId", url, title, description, images, "postedAt"
       ) VALUES (
+        ${post.postId},
+        ${groupId},
         ${post.url},
         ${title},
         ${description},
-        ${rent},
-        'ILS',
-        'unknown',
-        'Tel Aviv',
-        0,
-        1,
-        ${sql.array([] as string[])},
         ${sql.array(images)},
-        'draft'
+        ${post.postedAt ?? null}
       )
-      ON CONFLICT (url) DO UPDATE SET
+      ON CONFLICT ("postId") DO UPDATE SET
+        "groupId" = EXCLUDED."groupId",
+        url = EXCLUDED.url,
         title = EXCLUDED.title,
         description = EXCLUDED.description,
-        rent = EXCLUDED.rent,
+        images = EXCLUDED.images,
+        "postedAt" = COALESCE(EXCLUDED."postedAt", raw_facebook_posts."postedAt"),
         "updatedAt" = now()
       RETURNING id
     `;

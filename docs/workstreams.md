@@ -85,8 +85,8 @@ Suggested order: **W0 → W1 ∥ W2 → W3 → W4/W5 → W6a → W6 → W7**
 
 | Task | Notes | Status |
 |------|-------|--------|
-| W3.1 Data ownership | Postgres is source of truth for listings (`apartment_posts`) + watermarks (`scrape_cursors`). **Prod DB: Supabase. Staging: non-Supabase (e.g. in-cluster).** Photo blobs: **DigitalOcean Spaces**; `apartment_posts.images` stores Spaces URLs (or keys resolved via `IMAGES_BASE_URL`). No Supabase Storage. | next |
-| W3.2 Scraper role | TypeScript Temporal worker (`scrapers/facebook/`) writes listings → DB (direct or via API) | next |
+| W3.1 Data ownership | Postgres SoT for **raw FB ingest** (`raw_facebook_posts`) + watermarks (`scrape_cursors`). Dedup by Facebook `postId`. Columns: id, postId (unique), groupId, url, title, description, images (`text[]` of Spaces URLs), postedAt, createdAt, updatedAt. **LLM → structured listings is later** (not this table). **Prod DB: Supabase. Staging: non-Supabase.** Photo blobs: **DO Spaces**; `raw_facebook_posts.images` stores full Spaces URLs via `HOMIE_IMAGES_BUCKET` / `HOMIE_IMAGES_BASE_URL`. No Supabase Storage. | **agreed** |
+| W3.2 Scraper role | TypeScript Temporal worker (`scrapers/facebook/`) writes **raw posts** → DB (direct or via API) | next |
 | W3.3 TypeScript role | API + Website read DB; Cloudflare Worker path retired — pick Node/Bun in-cluster or host | next |
 | W3.4 Write path | Prefer: scrape worker → service role / internal API → DB; avoid dual schemas | next |
 | W3.5 Contract doc | Short ADR: tables, who writes, who reads, auth for inserts | next |
@@ -103,7 +103,7 @@ Depends on W3.
 |------|-------|--------|
 | W4.1 API runtime | Container or documented host process; env `DATABASE_URL` | later |
 | W4.2 DB in/alongside cluster | In-cluster Postgres **or** Supabase remote (prod); migrate + seed | later |
-| W4.2b Listing image Spaces | Create DO Spaces buckets for scraped photos: `…-staging` and `…-production` (or Homie-named equivalents); document keys out-of-band; point scraper/API at env-specific bucket + public/CDN base URL | next |
+| W4.2b Raw-post image Spaces | DO Spaces buckets for scraped FB photos (staging + production). Temporal activity `scrapeFacebookGroupFeed` uploads when `HOMIE_IMAGE_UPLOAD_MODE=spaces` (env from `~/.config/homie/spaces.env` or lane Secret); persist Spaces URLs in `raw_facebook_posts.images`. Env: `HOMIE_IMAGES_BUCKET`, `HOMIE_IMAGES_BASE_URL`, `HOMIE_SPACES_ENDPOINT`, `HOMIE_SPACES_REGION`, `HOMIE_SPACES_KEY` / `HOMIE_SPACES_SECRET`. Local mocks stay `noop`. Smoke: `bun run smoke:spaces-upload`. Staging Slack: `#homie-runtime-errors-staging` (`C0BJ6AMH2LE`, env `SLACK_STAGING_RUNTIME_ERRORS_CHANNEL_ID`) — separate from prod. | next |
 | W4.3 Kustomize base | `infra/k3s/base/` Deployments/Services when ready | later |
 | W4.4 Local overlay | `overlays/local` wires images + secrets examples | later |
 
@@ -171,8 +171,9 @@ Temporal Schedule (few×/day, jitter)
       → read per-group watermark from Postgres (post_id / date_posted)
       → Playwright activity (saved storage_state / cookies) — **one group per workflow run**
       → scroll recent posts for that group (hard cap; total ≤ ~1k posts/mo across groups)
-      → normalize + dedup (post id/url); advance watermark
-      → write path (W3.4: internal API or service role → apartment_posts)
+      → normalize + dedup by Facebook `postId`; advance watermark
+      → upload post images to DO Spaces when mode=`spaces`; persist URLs in `raw_facebook_posts.images`
+      → write path (W3.4: internal API or service role → `raw_facebook_posts`)
       → emit run report (structured log + optional Slack)
 ```
 
@@ -188,7 +189,8 @@ flowchart TB
     TW["Temporal Worker"]
     Secret["Session secret<br/>storage_state / cookies"]
     API["Homie API<br/>write path W3.4"]
-    DB[("Postgres<br/>apartment_posts<br/>scrape_cursors")]
+    DB[("Postgres<br/>raw_facebook_posts<br/>scrape_cursors")]
+    Spaces["DO Spaces<br/>post images"]
     Loki["Loki / logs<br/>run reports"]
   end
 
@@ -198,8 +200,9 @@ flowchart TB
     Park["Await signal<br/>cookies_renewed"]
     Cursor["Read watermark<br/>per group_id"]
     PW["Playwright<br/>one group per run<br/>cap; ≤ ~1k posts/mo total"]
-    Dedup["Normalize + dedup<br/>advance watermark"]
-    Write["Upsert listings"]
+    Dedup["Upsert raw posts<br/>by postId + watermark"]
+    Img["persistListingImages<br/>noop or Spaces"]
+    Write["Write raw_facebook_posts"]
     Report["Emit run report"]
   end
 
@@ -212,17 +215,16 @@ flowchart TB
   Renew -->|signal| Park
   Park --> Auth
   Wait -->|yes| Cursor
-  Cursor --> DB
   Cursor --> PW
-  Secret --> PW
   PW --> Dedup
-  Dedup --> Write
+  Dedup --> Img
+  Img -->|spaces| Spaces
+  Img --> Write
   Write --> API
   API --> DB
-  Dedup --> DB
-  Write --> Report
+  Dedup --> Report
   Report --> Loki
-  Report -->|auth / empty / throttle| Slack
+  Auth -.->|session| Secret
 ```
 
 k3s connection: Temporal server + worker Deployment(s) on Homie cluster (local k3d first, droplet later with W2/W4). Session file/secret out-of-band (`~/.config/homie/` or K8s Secret). Monitoring/Slack still via W1 + existing Loki path. Argo Workflows remains for CI only (not shown).
@@ -242,8 +244,21 @@ Optional later: Apify cookie-capable actor if we want to outsource selector main
 | Schedule | **One Temporal workflow per group** (distinct runs; failure isolation); few×/day + jitter | **agreed** |
 | Host | Temporal + worker on k3s (local first); secrets out-of-band | next |
 | Language | **TypeScript** Temporal worker + Playwright (`scrapers/facebook/`) | **agreed** |
-| Listing images | Download in scrape → upload **DO Spaces** → persist **Spaces URLs** in `apartment_posts.images` (`text[]`); staging/prod = separate buckets via config | **agreed** |
-| Image storage (DO) | Provision **two dedicated Spaces buckets** for scraped post photos: one **staging**, one **production**; wire via env (`IMAGES_BUCKET` / `IMAGES_BASE_URL`), never share buckets across envs | **next** |
+| Post images | Download in scrape activity → upload **DO Spaces** → persist Spaces URLs in `raw_facebook_posts.images` (`text[]`); staging/prod = separate buckets via config | **agreed** |
+| Image storage (DO) | Two Spaces buckets (staging + production); wire via `HOMIE_IMAGES_BUCKET` / `HOMIE_IMAGES_BASE_URL` (+ `HOMIE_SPACES_*` creds); never share buckets across envs. Activity loads `spaces.env` / lane Secret. | **agreed** |
+
+**Drizzle schema — `raw_facebook_posts`** (migration `drizzle/0002_raw_facebook_posts.sql`):
+
+Raw FB ingest (pre-LLM). Dedup / upsert key: Facebook `postId`.
+
+| Column | Notes |
+|--------|--------|
+| `postId` | Unique FB post id |
+| `groupId` | FB group id |
+| `url` / `title` / `description` | Raw text + permalink |
+| `images` | `text[]` — Spaces CDN URLs when mode=`spaces`, else FB CDN / empty |
+| `postedAt` | Nullable FB timestamp when available |
+| `createdAt` / `updatedAt` | Homie timestamps |
 
 **Drizzle schema — `scrape_cursors`** (defined in `Homie-Website/src/db/schema.ts`; migration `drizzle/0001_scrape_cursors.sql`):
 
@@ -257,7 +272,7 @@ One row per Facebook group. Watermark = how far Homie has successfully ingested;
 | `last_run_at` / `last_status` / `last_error` | Ops signal (`ScrapeCursorStatus` enum) |
 | `posts_seen` / `posts_new` | Last-run counters |
 
-**Usage:** workflow reads row by `(source, group_id)` → scrape → upsert `apartment_posts` by post `url`/`post_id` → on success set `last_post_id` / `last_posted_at` to the newest ingested post and `last_status = 'ok'`. On auth/parse/throttle failure: update `last_status` / `last_error` / `last_run_at` **without** moving the watermark.
+**Usage:** workflow reads row by `(source, group_id)` → scrape → upsert `raw_facebook_posts` by Facebook `postId` (images via Spaces when mode=`spaces`) → on success set `last_post_id` / `last_posted_at` to the newest ingested post and `last_status = 'ok'`. On auth/parse/throttle failure: update `last_status` / `last_error` / `last_run_at` **without** moving the watermark.
 
 ### Playwright single-run contract
 
@@ -267,9 +282,9 @@ Code mirror: `scrapers/facebook/src/scrapeRunPolicy.ts`.
 
 1. Load `scrape_cursors` for `(facebook_group, group_id)`.
 2. Open group URL with saved storage_state (chronological sort if available).
-3. Scroll the feed; parse visible posts (`post_id`, url, text, `date_posted`, author).
+3. Scroll the feed; parse visible posts (`postId`, url, text, imageUrls, `postedAt`, author).
 4. Decide which posts are **candidates** (see cold start vs incremental below).
-5. Upsert candidates → Homie write path; dedupe by post url / `post_id`.
+5. Upsert candidates into `raw_facebook_posts`; dedupe by `postId`; persist image URLs (noop CDN or Spaces).
 6. On success: advance watermark to the **newest** successfully ingested post; set `last_status=ok`, counters.
 7. Emit run report (`posts_seen`, `posts_new`, `posts_upserted`, stop reason).
 
@@ -305,7 +320,7 @@ Code mirror: `scrapers/facebook/src/scrapeRunPolicy.ts`.
 | Stop rules | Caps + watermark + timeout as table above | **leaning** |
 | Policy file | `scrapeRunPolicy.ts` | **agreed** |
 
-**Open questions:** shared vs personal FB account; keyword filters (scraper vs post-DB); Homie-alerts in-path or side-path; whether `apartment_posts.url` is enough for dedup or we need a `source_post_id` column.
+**Open questions:** shared vs personal FB account; keyword filters (scraper vs post-DB / later listing table); Homie-alerts in-path or side-path. **Resolved:** dedup by Facebook `postId` (not url).
 
 **Done when:** short ADR or bullet contract: schedule → scrape → dedup/watermark → write → report (+ cookie signal path).
 
@@ -373,8 +388,8 @@ Depends on W3–W4 and **W6a** (for Facebook fetcher design).
 | Task | Notes | Status |
 |------|-------|--------|
 | W6.1 Facebook (or other) fetcher | Scaffold: `scrapers/facebook/` (TS Temporal auth probe + Slack); scrape/upsert TBD per W6a | later |
-| W6.2 Persist listings | Insert/upsert into `apartment_posts` | later |
-| W6.3 API list/read | TypeScript serves active listings | later |
+| W6.2 Persist raw posts | Insert/upsert `raw_facebook_posts` (dedup `postId`); Spaces URLs in `images` when mode=`spaces` | later |
+| W6.3 API list/read | TypeScript serves listings (**after** LLM extraction; may not read raw table directly) | later |
 | W6.4 UI | Homie-Website shows listings from API | later |
 
 ---

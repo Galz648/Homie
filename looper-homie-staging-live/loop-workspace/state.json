@@ -1,0 +1,6 @@
+{
+  "phase": "emitted",
+  "root_branch": "feat/homie-staging-live",
+  "staging_slack_channel": "homie-runtime-errors-staging",
+  "staging_slack_channel_id": "C0BJ6AMH2LE"
+}

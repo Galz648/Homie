@@ -44,12 +44,13 @@ async function collectVisiblePosts(page: Page, groupId: string): Promise<Scraped
       postId,
       url: absUrl(href.includes("groups/") ? href : `/groups/${groupId}/posts/${postId}`),
       text: "",
+      imageUrls: [],
     });
   }
 
-  // Best-effort text: pull article-ish blocks near permalinks
-  const texts = await page.evaluate(() => {
-    const out: { href: string; text: string }[] = [];
+  // Best-effort text + images: pull article-ish blocks near permalinks
+  const media = await page.evaluate(() => {
+    const out: { href: string; text: string; imageUrls: string[] }[] = [];
     for (const a of Array.from(document.querySelectorAll("a[href]"))) {
       const href = a.getAttribute("href") || "";
       if (!/\/(posts|permalink)\//i.test(href)) continue;
@@ -58,16 +59,37 @@ async function collectVisiblePosts(page: Page, groupId: string): Promise<Scraped
         a.closest("div") ||
         a.parentElement;
       const text = (root?.textContent || "").replace(/\s+/g, " ").trim().slice(0, 2000);
-      if (text) out.push({ href, text });
+      const imageUrls: string[] = [];
+      if (root) {
+        for (const img of Array.from(root.querySelectorAll("img[src]"))) {
+          const src = (img as HTMLImageElement).getAttribute("src") || "";
+          if (
+            src.startsWith("http") &&
+            /scontent|fbcdn|facebook\.com\/.*\.(jpg|jpeg|png|webp)/i.test(src)
+          ) {
+            imageUrls.push(src.split("?")[0]!);
+          }
+        }
+      }
+      if (text || imageUrls.length) out.push({ href, text, imageUrls });
     }
     return out;
   });
 
-  for (const t of texts) {
-    const postId = postIdFromHref(t.href);
+  for (const m of media) {
+    const postId = postIdFromHref(m.href);
     if (!postId) continue;
     const existing = byId.get(postId);
-    if (existing && !existing.text) existing.text = t.text;
+    if (!existing) continue;
+    if (!existing.text && m.text) existing.text = m.text;
+    if (m.imageUrls.length) {
+      const seen = new Set(existing.imageUrls ?? []);
+      for (const u of m.imageUrls) {
+        if (seen.has(u)) continue;
+        seen.add(u);
+        (existing.imageUrls ??= []).push(u);
+      }
+    }
   }
 
   return [...byId.values()];

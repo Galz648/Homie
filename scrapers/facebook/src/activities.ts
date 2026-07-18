@@ -101,12 +101,21 @@ export type ScrapeGroupActivityInput = {
   groupUrl: string;
 };
 
-/** Activity: cursor → scrape → upsert → watermark. */
+/**
+ * Activity: cursor → scrape → upsert raw posts → watermark.
+ *
+ * Image path: `loadSettings()` pulls `~/.config/homie/spaces.env` (or lane
+ * Secret). When `HOMIE_IMAGE_UPLOAD_MODE=spaces`, upsert downloads feed image
+ * URLs and PutObject to DO Spaces; Spaces CDN URLs land in
+ * `raw_facebook_posts.images`. Local mocks keep mode=`noop`.
+ */
 export async function scrapeFacebookGroupFeed(
   input: ScrapeGroupActivityInput,
 ): Promise<RunReport> {
   const settings = loadSettings();
-  log.info(`scrape start group=${input.groupId}`);
+  log.info(
+    `scrape start group=${input.groupId} imageMode=${process.env.HOMIE_IMAGE_UPLOAD_MODE ?? "noop"}`,
+  );
   const report = await runScrapePipeline({
     groupId: input.groupId,
     groupUrl: input.groupUrl,

@@ -1,5 +1,4 @@
-import { eq } from "drizzle-orm";
-import { createDb, apartmentPosts } from "./db/index.ts";
+import { createDb, rawFacebookPosts } from "./db/index.ts";
 
 /** Legacy Worker handler — Cloudflare deploy removed; kept as reference only. */
 type WorkerEnv = {
@@ -23,12 +22,9 @@ export default {
     if (url.pathname === "/api/listings" && request.method === "GET") {
       try {
         const db = createDb(env.DATABASE_URL);
-        const listings = await db
-          .select()
-          .from(apartmentPosts)
-          .where(eq(apartmentPosts.status, "active"));
+        const posts = await db.select().from(rawFacebookPosts);
 
-        return Response.json(listings, { headers });
+        return Response.json(posts, { headers });
       } catch (error) {
         const message =
           error instanceof Error

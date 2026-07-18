@@ -5,7 +5,7 @@ import {
   type ScrapeFeedResult,
 } from "./scrapeFeed.js";
 import type { RunReport } from "./types.js";
-import { upsertScrapedPosts } from "./upsertListings.js";
+import { upsertScrapedPosts } from "./upsertRawPosts.js";
 import { formatIsraelTime } from "../time.js";
 
 export type RunScrapeInput = {
@@ -106,7 +106,11 @@ export async function runScrapePipeline(
     }
 
     // Feed order is top-of-feed first (newest-ish). Watermark = first collected.
-    const { upserted, newest } = await upsertScrapedPosts(sql, feed.posts);
+    const { upserted, newest } = await upsertScrapedPosts(
+      sql,
+      input.groupId,
+      feed.posts,
+    );
     const advance = upserted > 0 && newest != null;
     const possibleGap =
       !coldStart && feed.stopReason === "hit_post_cap";

@@ -1,6 +1,4 @@
 import {
-  boolean,
-  doublePrecision,
   index,
   integer,
   pgEnum,
@@ -10,19 +8,6 @@ import {
   unique,
   uuid,
 } from "drizzle-orm/pg-core";
-
-export const listingStatusEnum = pgEnum("ListingStatus", [
-  "draft",
-  "active",
-  "rented",
-  "archived",
-]);
-
-export const listingTypeEnum = pgEnum("ListingType", [
-  "rent",
-  "sublet",
-  "roommate",
-]);
 
 /** Last scrape run outcome for a source/group cursor (W6a). */
 export const scrapeCursorStatusEnum = pgEnum("ScrapeCursorStatus", [
@@ -35,32 +20,21 @@ export const scrapeCursorStatusEnum = pgEnum("ScrapeCursorStatus", [
   "crash",
 ]);
 
-export const apartmentPosts = pgTable(
-  "apartment_posts",
+/**
+ * Raw Facebook group posts (pre-LLM extraction).
+ * Dedup / upsert key: Facebook `postId` (globally unique in practice).
+ */
+export const rawFacebookPosts = pgTable(
+  "raw_facebook_posts",
   {
     id: uuid().primaryKey().defaultRandom(),
-    url: text().notNull().unique(),
+    postId: text().notNull().unique(),
+    groupId: text().notNull(),
+    url: text().notNull(),
     title: text().notNull(),
     description: text().notNull(),
-    rent: integer().notNull(),
-    currency: text().notNull().default("ILS"),
-    address: text().notNull(),
-    city: text().notNull(),
-    neighborhood: text(),
-    latitude: doublePrecision(),
-    longitude: doublePrecision(),
-    bedrooms: integer().notNull(),
-    bathrooms: doublePrecision().notNull(),
-    sizeSqm: integer(),
-    floor: integer(),
-    totalFloors: integer(),
-    furnished: boolean().notNull().default(false),
-    availableFrom: timestamp({ precision: 3, mode: "date" }),
-    listingType: listingTypeEnum().notNull().default("rent"),
-    amenities: text().array().notNull(),
     images: text().array().notNull(),
-    status: listingStatusEnum().notNull().default("draft"),
-    postedById: uuid(),
+    postedAt: timestamp({ withTimezone: true, precision: 3, mode: "date" }),
     createdAt: timestamp({ precision: 3, mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp({ precision: 3, mode: "date" })
       .notNull()
@@ -68,9 +42,7 @@ export const apartmentPosts = pgTable(
       .$onUpdate(() => new Date()),
   },
   (table) => [
-    index("apartment_posts_city_idx").on(table.city),
-    index("apartment_posts_status_idx").on(table.status),
-    index("apartment_posts_postedById_idx").on(table.postedById),
+    index("raw_facebook_posts_group_id_idx").on(table.groupId),
   ],
 );
 
@@ -109,7 +81,7 @@ export const scrapeCursors = pgTable(
   ],
 );
 
-export type ApartmentPost = typeof apartmentPosts.$inferSelect;
-export type NewApartmentPost = typeof apartmentPosts.$inferInsert;
+export type RawFacebookPost = typeof rawFacebookPosts.$inferSelect;
+export type NewRawFacebookPost = typeof rawFacebookPosts.$inferInsert;
 export type ScrapeCursor = typeof scrapeCursors.$inferSelect;
 export type NewScrapeCursor = typeof scrapeCursors.$inferInsert;

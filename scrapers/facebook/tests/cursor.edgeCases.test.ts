@@ -16,7 +16,7 @@ describe("cursor edge cases", () => {
 
   beforeAll(async () => {
     await sql`DELETE FROM scrape_cursors WHERE "groupId" LIKE ${`${GROUP_PREFIX}-%`}`;
-    await sql`DELETE FROM apartment_posts WHERE url LIKE ${`%/groups/${GROUP_PREFIX}-%`}`;
+    await sql`DELETE FROM raw_facebook_posts WHERE "groupId" LIKE ${`${GROUP_PREFIX}-%`}`;
   });
 
   afterAll(async () => {
@@ -25,7 +25,7 @@ describe("cursor edge cases", () => {
 
   beforeEach(async () => {
     await sql`DELETE FROM scrape_cursors WHERE "groupId" LIKE ${`${GROUP_PREFIX}-%`}`;
-    await sql`DELETE FROM apartment_posts WHERE url LIKE ${`%/groups/${GROUP_PREFIX}-%`}`;
+    await sql`DELETE FROM raw_facebook_posts WHERE "groupId" LIKE ${`${GROUP_PREFIX}-%`}`;
   });
 
   test("empty feed → empty_suspect, watermark frozen", async () => {
@@ -74,8 +74,8 @@ describe("cursor edge cases", () => {
     expect(cursor?.lastStatus).toBe("ok");
 
     const rows = await sql`
-      SELECT count(*)::int AS c FROM apartment_posts
-      WHERE url LIKE ${`%/groups/${groupId}/%`}
+      SELECT count(*)::int AS c FROM raw_facebook_posts
+      WHERE "groupId" = ${groupId}
     `;
     expect(rows[0]!.c).toBe(n);
   });

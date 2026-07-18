@@ -15,6 +15,13 @@
       "when": 1784370900000,
       "tag": "0001_scrape_cursors",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784388000000,
+      "tag": "0002_raw_facebook_posts",
+      "breakpoints": true
     }
   ]
 }
