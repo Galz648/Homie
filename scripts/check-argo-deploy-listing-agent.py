@@ -45,6 +45,7 @@ REQUIRED_TEMPLATE = (
     "agents/listing-extract",
     "ListingExtractAgent",
     "git-branch",
+    "homie-listing-extract-deploy",
 )
 
 

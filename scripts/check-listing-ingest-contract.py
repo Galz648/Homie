@@ -141,6 +141,45 @@ def grep_agent_config_forbidden() -> list[str]:
     return hits
 
 
+def assert_singleton_worker(wrangler_text: str) -> list[str]:
+    """Enforce one Worker identity: fixed top-level name, no env-named forks."""
+    errors: list[str] = []
+    expected = "homie-listing-extract"
+
+    # Top-level `name` is the first `name =` before any [table] (bindings come later).
+    worker_name: str | None = None
+    for ln in wrangler_text.splitlines():
+        s = ln.strip()
+        if not s or s.startswith("#"):
+            continue
+        if s.startswith("["):
+            break
+        m = re.match(r'^name\s*=\s*"([^"]+)"\s*$', s)
+        if m:
+            worker_name = m.group(1)
+            break
+
+    if worker_name != expected:
+        errors.append(
+            f'wrangler.toml top-level name must be "{expected}" '
+            f"(got {worker_name!r}); that id is the singleton Worker wrangler deploy replaces"
+        )
+
+    # `[env.foo]` with its own name creates a second Worker — ban env tables.
+    if re.search(r"^\[env\.", wrangler_text, re.MULTILINE):
+        errors.append(
+            "wrangler.toml must not define [env.*] blocks for this Agent "
+            "(env-specific names create a second Worker; keep one deploy target)"
+        )
+
+    if "preview_urls = false" not in wrangler_text:
+        errors.append(
+            "wrangler.toml must set preview_urls = false (no ephemeral preview deploys)"
+        )
+
+    return errors
+
+
 def main() -> int:
     required = [
         AGENT_SCHEMA,
@@ -181,6 +220,7 @@ def main() -> int:
     ):
         if needle not in wrangler:
             errors.append(f"wrangler.toml missing Agent binding marker {needle!r}")
+    errors.extend(assert_singleton_worker(wrangler))
 
     pkg = load_json(AGENT / "package.json")
     deps = {**(pkg.get("dependencies") or {}), **(pkg.get("devDependencies") or {})}

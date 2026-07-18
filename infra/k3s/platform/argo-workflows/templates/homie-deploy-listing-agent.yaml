@@ -1,5 +1,9 @@
 # Deploy Cloudflare listing-extract Agent via Wrangler (non-interactive).
 #
+# Singleton: wrangler.toml name = "homie-listing-extract" — each deploy
+# replaces that one Worker in place (no second app). Mutex below prevents
+# overlapping deploys. Do not pass --env / alternate Worker names.
+#
 # Requires Secret in namespace argo:
 #   kubectl -n argo create secret generic cloudflare-api-token \
 #     --from-literal=CLOUDFLARE_API_TOKEN=...
@@ -20,6 +24,10 @@ spec:
   entrypoint: main
   serviceAccountName: argo-workflow
   activeDeadlineSeconds: 1800
+  # Only one listing-extract deploy runs at a time (queue others).
+  synchronization:
+    mutex:
+      name: homie-listing-extract-deploy
   ttlStrategy:
     secondsAfterSuccess: 7200
     secondsAfterFailure: 14400
@@ -127,9 +135,10 @@ spec:
             fi
             # ripgrep not in bun image; Agent markers already checked at clone
             bun install --frozen-lockfile || bun install
+            # Upsert the single Worker named in wrangler.toml (never --env / --name).
             bunx wrangler deploy
-            echo "ok: wrangler deploy listing-extract @ ${SHORT}"
-            echo "Set scrape worker HOMIE_CF_AGENT_WEBHOOK_URL to https://<worker>.workers.dev/webhooks"
+            echo "ok: wrangler deploy replaced homie-listing-extract @ ${SHORT}"
+            echo "Set scrape worker HOMIE_CF_AGENT_WEBHOOK_URL to https://homie-listing-extract.<subdomain>.workers.dev/webhooks"
         volumeMounts:
           - name: work
             mountPath: /work

@@ -31,14 +31,20 @@ Same webhook + ingest Bearer values live in staging k8s
 
 ## Deploy
 
+One Cloudflare Worker named `homie-listing-extract`. `wrangler deploy` **replaces**
+that Worker in place (there is no Wrangler “create second app” flag — the top-level
+`name` is the resource id). Do not add `[env.*]` with a different `name`.
+
 ```bash
 cd agents/listing-extract
 bun install
 wrangler deploy
 # Then set scrape worker HOMIE_CF_AGENT_WEBHOOK_URL to
-#   https://<worker>.workers.dev/webhooks
+#   https://homie-listing-extract.<subdomain>.workers.dev/webhooks
 # Temporal appends /:postId
 ```
+
+Cluster path (preferred): Argo WorkflowTemplate `homie-deploy-listing-agent`.
 
 ## Local mocked e2e
 
