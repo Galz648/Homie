@@ -103,7 +103,7 @@ Depends on W3.
 |------|-------|--------|
 | W4.1 API runtime | Container or documented host process; env `DATABASE_URL` | later |
 | W4.2 DB in/alongside cluster | In-cluster Postgres **or** Supabase remote (prod); migrate + seed | later |
-| W4.2b Listing image Spaces | TF: two Spaces buckets (`spaces_images` in `infra/terraform/stacks/k3s`); app env `HOMIE_IMAGE_UPLOAD_MODE=spaces` + `HOMIE_IMAGES_BUCKET` / `HOMIE_IMAGES_BASE_URL` / `HOMIE_SPACES_*` (keys out of band). Local e2e stays `noop`. | **in progress** (`feat/homie-spaces-images`) |
+| W4.2b Listing image Spaces | Two Spaces buckets + Homie-only key `homie-images`; k8s Secret `homie-spaces-images` per lane (`apply-homie-spaces-secret.sh`). Local e2e stays `noop`. | **done** (wire worker envFrom when scrape deploy lands) |
 | W4.3 Kustomize base | `infra/k3s/base/` Deployments/Services when ready | later |
 | W4.4 Local overlay | `overlays/local` wires images + secrets examples | later |
 
