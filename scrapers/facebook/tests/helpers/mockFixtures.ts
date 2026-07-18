@@ -13,6 +13,7 @@ export function fakeSettings(over: Partial<Settings> = {}): Settings {
     facebookStatePath: "/tmp/homie-test-missing-state.json",
     slackBotToken: undefined,
     slackRuntimeErrorsChannelId: undefined,
+    lane: "local",
     ...over,
   };
 }

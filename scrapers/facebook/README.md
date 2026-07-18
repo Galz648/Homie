@@ -46,7 +46,9 @@ Secrets (never commit):
 | Purpose | Staging-lane Temporal scrape / auth alerts only |
 
 Prod keeps using `SLACK_RUNTIME_ERRORS_CHANNEL_ID` → `#homie-runtime-errors`.
-Staging worker must **not** post to the prod channel. Local note:
+Staging worker must set `HOMIE_LANE=staging` (or `HOMIE_ENV=staging`) so
+`loadSettings()` resolves `SLACK_STAGING_RUNTIME_ERRORS_CHANNEL_ID` — it does
+**not** fall back to the prod channel. Local note:
 `~/.config/homie/slack-staging-channel.md` (test message posted at channel create).
 
 ## Raw post images (Temporal activity)

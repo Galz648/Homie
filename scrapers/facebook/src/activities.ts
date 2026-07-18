@@ -69,7 +69,7 @@ export async function probeFacebookAuth(
     const channel = settings.slackRuntimeErrorsChannelId;
     if (!token || !channel) {
       log.error(
-        "Auth failed but Slack not configured (SLACK_BOT_TOKEN / SLACK_RUNTIME_ERRORS_CHANNEL_ID)",
+        "Auth failed but Slack not configured (SLACK_BOT_TOKEN / SLACK_STAGING_RUNTIME_ERRORS_CHANNEL_ID for staging, or SLACK_RUNTIME_ERRORS_CHANNEL_ID)",
       );
     } else {
       const message = formatAuthFailureMessage({
