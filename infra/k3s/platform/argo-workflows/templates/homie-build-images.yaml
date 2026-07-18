@@ -136,10 +136,15 @@ spec:
                 git@github.com:Galz648/Homie.git pin-repo
             cd pin-repo
             KUST=infra/k3s/overlays/staging/kustomization.yaml
+            PATCH=infra/k3s/overlays/staging/patch-fb-scrape-worker-image.yaml
             sed -i "s/newTag: .*/newTag: ${TAG}/" "$KUST"
+            if [[ -f "$PATCH" ]]; then
+              sed -i "s|image: zot.local:5000/homie/fb-scrape-worker:.*|image: zot.local:5000/homie/fb-scrape-worker:${TAG}|" "$PATCH"
+            fi
             git config user.email "homie-ci@local"
             git config user.name "homie-build-images"
             git add "$KUST"
+            [[ -f "$PATCH" ]] && git add "$PATCH"
             if git diff --cached --quiet; then
               echo "pin already ${TAG}"
               exit 0
