@@ -11,8 +11,8 @@ patches:
   - path: patch-temporal-svc-clusterip.yaml
   - path: patch-temporal-ui-svc-clusterip.yaml
   - path: patch-postgres-svc-clusterip.yaml
-# Zot — in-cluster build pins worker to staging-dfa78e1 (Argo OutOfSync until Sync).
+# Zot — in-cluster build pins worker to staging-b267efb (Argo OutOfSync until Sync).
 images:
   - name: fb-scrape-worker
     newName: zot.local:5000/homie/fb-scrape-worker
-    newTag: staging-dfa78e1
+    newTag: staging-b267efb
