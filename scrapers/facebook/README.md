@@ -59,16 +59,15 @@ Secrets (never commit):
 
 | | |
 |--|--|
-| Channel | `#homie-runtime-errors-staging` |
-| Channel ID | `C0BJ6AMH2LE` |
-| Env | `SLACK_STAGING_RUNTIME_ERRORS_CHANNEL_ID` |
-| Purpose | Staging-lane Temporal scrape / auth alerts only |
+| Runtime errors | `#homie-runtime-errors-staging` → `SLACK_STAGING_RUNTIME_ERRORS_CHANNEL_ID` |
+| New postings | `#homie-new-postings-staging` → `SLACK_STAGING_NEW_POSTINGS_CHANNEL_ID` |
 
-Prod keeps using `SLACK_RUNTIME_ERRORS_CHANNEL_ID` → `#homie-runtime-errors`.
+Prod: `#homie-runtime-errors` / `#homie-new-postings` via `SLACK_RUNTIME_ERRORS_CHANNEL_ID` /
+`SLACK_NEW_POSTINGS_CHANNEL_ID`.
+
 Staging worker must set `HOMIE_LANE=staging` (or `HOMIE_ENV=staging`) so
-`loadSettings()` resolves `SLACK_STAGING_RUNTIME_ERRORS_CHANNEL_ID` — it does
-**not** fall back to the prod channel. Local note:
-`~/.config/homie/slack-staging-channel.md` (test message posted at channel create).
+`loadSettings()` resolves the staging channel IDs — it does **not** fall back to
+prod channels. Apply with `./scripts/apply-homie-slack-secret.sh staging|production`.
 
 ## Raw post images (Temporal activity)
 

@@ -19,6 +19,8 @@ export type Settings = {
   slackBotToken: string | undefined;
   /** Lane-aware: staging → SLACK_STAGING_RUNTIME_ERRORS_CHANNEL_ID, else prod. */
   slackRuntimeErrorsChannelId: string | undefined;
+  /** Lane-aware: staging → SLACK_STAGING_NEW_POSTINGS_CHANNEL_ID, else prod. */
+  slackNewPostingsChannelId: string | undefined;
   /** `local` | `staging` | `production` (from HOMIE_LANE or HOMIE_ENV). */
   lane: string;
   /**
@@ -45,6 +47,18 @@ export function resolveRuntimeErrorsChannelId(
   return env.SLACK_RUNTIME_ERRORS_CHANNEL_ID?.trim() || undefined;
 }
 
+/** Resolve which Slack new-postings channel to use for this lane. */
+export function resolveNewPostingsChannelId(
+  env: NodeJS.ProcessEnv = process.env,
+): string | undefined {
+  const lane = (env.HOMIE_LANE ?? env.HOMIE_ENV ?? "local").toLowerCase();
+  if (lane === "staging") {
+    // Never fall back to prod channel on staging.
+    return env.SLACK_STAGING_NEW_POSTINGS_CHANNEL_ID?.trim() || undefined;
+  }
+  return env.SLACK_NEW_POSTINGS_CHANNEL_ID?.trim() || undefined;
+}
+
 export function loadSettings(): Settings {
   loadOptionalEnv(join(homedir(), ".config", "homie", "slack.env"));
   loadOptionalEnv(join(homedir(), ".config", "homie", "fb-scrape.env"));
@@ -66,6 +80,7 @@ export function loadSettings(): Settings {
       join(homedir(), ".config", "homie", "facebook_state.json"),
     slackBotToken: process.env.SLACK_BOT_TOKEN,
     slackRuntimeErrorsChannelId: resolveRuntimeErrorsChannelId(),
+    slackNewPostingsChannelId: resolveNewPostingsChannelId(),
     lane,
     cfAgentWebhookUrl:
       process.env.HOMIE_CF_AGENT_WEBHOOK_URL?.trim() || undefined,

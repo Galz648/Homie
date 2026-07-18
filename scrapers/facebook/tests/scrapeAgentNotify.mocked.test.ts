@@ -33,6 +33,7 @@ describe("scrape → Agent notify (mocked e2e)", () => {
     const postA = `mock-agent-a-${Date.now()}`;
     const postB = `mock-agent-b-${Date.now()}`;
 
+    const postCalls: unknown[] = [];
     const report = await scrapeFacebookGroupFeed(
       {
         groupId: GROUP_ID,
@@ -40,7 +41,14 @@ describe("scrape → Agent notify (mocked e2e)", () => {
         workflowId: "e2e-mock-agent-notify",
       },
       {
-        settings: fakeSettings(),
+        settings: fakeSettings({
+          slackBotToken: "xoxb-test",
+          slackNewPostingsChannelId: "C_STAGING_POSTINGS",
+          lane: "staging",
+        }),
+        postPosting: async (args) => {
+          postCalls.push(args);
+        },
         run: (args) =>
           runScrapePipeline({
             ...args,
@@ -67,6 +75,11 @@ describe("scrape → Agent notify (mocked e2e)", () => {
     expect(report.status).toBe("ok");
     expect(report.postsNew).toBe(2);
     expect(report.newListings).toHaveLength(2);
+    expect(report.slackPostingsNotified).toBe(2);
+    expect(postCalls).toHaveLength(2);
+    expect(
+      (postCalls[0] as { channelId: string }).channelId,
+    ).toBe("C_STAGING_POSTINGS");
 
     const fetchFn = vi.fn(
       async () => new Response("accepted", { status: 202 }),

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   formatAuthFailureMessage,
+  formatNewPostingMessage,
   formatRuntimeErrorMessage,
   formatScrapeFailureMessage,
   shouldAlertScrape,
@@ -116,5 +117,25 @@ describe("formatScrapeFailureMessage", () => {
       groupUrl: "https://facebook.com/groups/g1",
     });
     expect(msg.body).toContain("`zero_results`");
+  });
+});
+
+describe("formatNewPostingMessage", () => {
+  test("includes env, group, postId, url, preview", () => {
+    const msg = formatNewPostingMessage({
+      postId: "p1",
+      text: "3 rooms near Dizengoff ₪7500",
+      url: "https://www.facebook.com/groups/g1/posts/p1/",
+      groupId: "g1",
+      env: "staging",
+    });
+    expect(msg.text).toContain("[Homie][posting]");
+    expect(msg.text).toContain("env=staging");
+    expect(msg.text).toContain("postId=p1");
+    expect(msg.body).toContain("New Facebook listing");
+    expect(msg.body).toContain("`staging`");
+    expect(msg.body).toContain("`g1`");
+    expect(msg.body).toContain("https://www.facebook.com/groups/g1/posts/p1/");
+    expect(msg.body).toContain("3 rooms near Dizengoff");
   });
 });

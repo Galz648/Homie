@@ -3,6 +3,7 @@ import { createDrizzleStore, createMemoryStore } from "./store.js";
 import {
   createNoopSlackNotifier,
   createSlackNotifier,
+  resolveNewPostingsChannelId,
   type SlackFetch,
 } from "./slack.js";
 import {
@@ -31,7 +32,7 @@ export function resolveDepsFromEnv(env: NodeJS.ProcessEnv = process.env): Ingest
       : createDrizzleStore(databaseUrl);
 
   const botToken = env.SLACK_BOT_TOKEN;
-  const successChannelId = env.HOMIE_INGEST_SLACK_CHANNEL_ID;
+  const successChannelId = resolveNewPostingsChannelId(env);
   const slack =
     botToken && successChannelId
       ? createSlackNotifier({ botToken, channelId: successChannelId })

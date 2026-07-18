@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Apply Slack bot + lane channel IDs → Secret for fb-scrape-worker.
+# Apply Slack bot + lane channel IDs → Secret for fb-scrape-worker + homie-ingest.
 #
 # Reads ~/.config/homie/slack.env (never commit).
 #
@@ -33,13 +33,27 @@ if [[ "$LANE" == "staging" ]]; then
     echo "SLACK_STAGING_RUNTIME_ERRORS_CHANNEL_ID required for staging" >&2
     exit 1
   fi
-  ARGS+=(--from-literal=SLACK_STAGING_RUNTIME_ERRORS_CHANNEL_ID="$SLACK_STAGING_RUNTIME_ERRORS_CHANNEL_ID")
+  if [[ -z "${SLACK_STAGING_NEW_POSTINGS_CHANNEL_ID:-}" ]]; then
+    echo "SLACK_STAGING_NEW_POSTINGS_CHANNEL_ID required for staging" >&2
+    exit 1
+  fi
+  ARGS+=(
+    --from-literal=SLACK_STAGING_RUNTIME_ERRORS_CHANNEL_ID="$SLACK_STAGING_RUNTIME_ERRORS_CHANNEL_ID"
+    --from-literal=SLACK_STAGING_NEW_POSTINGS_CHANNEL_ID="$SLACK_STAGING_NEW_POSTINGS_CHANNEL_ID"
+  )
 else
   if [[ -z "${SLACK_RUNTIME_ERRORS_CHANNEL_ID:-}" ]]; then
     echo "SLACK_RUNTIME_ERRORS_CHANNEL_ID required for production" >&2
     exit 1
   fi
-  ARGS+=(--from-literal=SLACK_RUNTIME_ERRORS_CHANNEL_ID="$SLACK_RUNTIME_ERRORS_CHANNEL_ID")
+  if [[ -z "${SLACK_NEW_POSTINGS_CHANNEL_ID:-}" ]]; then
+    echo "SLACK_NEW_POSTINGS_CHANNEL_ID required for production" >&2
+    exit 1
+  fi
+  ARGS+=(
+    --from-literal=SLACK_RUNTIME_ERRORS_CHANNEL_ID="$SLACK_RUNTIME_ERRORS_CHANNEL_ID"
+    --from-literal=SLACK_NEW_POSTINGS_CHANNEL_ID="$SLACK_NEW_POSTINGS_CHANNEL_ID"
+  )
 fi
 
 kubectl get ns "$NS" >/dev/null

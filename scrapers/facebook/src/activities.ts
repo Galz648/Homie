@@ -17,10 +17,13 @@ import { createSql } from "./pipeline/cursor.js";
 import type { RunReport } from "./pipeline/types.js";
 import {
   formatAuthFailureMessage,
+  formatNewPostingMessage,
   formatScrapeFailureMessage,
+  postNewPosting,
   postRuntimeError,
   shouldAlertAuth,
   shouldAlertScrape,
+  type NewPostingMessage,
   type RuntimeErrorMessage,
 } from "./slackNotify.js";
 
@@ -131,6 +134,11 @@ export type ScrapeFacebookGroupFeedDeps = {
     channelId: string;
     message: RuntimeErrorMessage | string;
   }) => Promise<void>;
+  postPosting?: (args: {
+    botToken: string;
+    channelId: string;
+    message: NewPostingMessage | string;
+  }) => Promise<void>;
 };
 
 /**
@@ -143,16 +151,23 @@ export type ScrapeFacebookGroupFeedDeps = {
  *
  * Non-ok reports (crash, empty_suspect, …) post to `#homie-runtime-errors`.
  *
- * On ok + postsNew > 0, also returns `newListings` (recent raw rows) so the
- * workflow can fire-and-forget notify the CF Agent per listing.
+ * On ok + postsNew > 0: posts each new listing to the lane `#homie-new-postings*`
+ * channel, and returns `newListings` so the workflow can FF-notify the CF Agent.
  */
 export async function scrapeFacebookGroupFeed(
   input: ScrapeGroupActivityInput,
   deps: ScrapeFacebookGroupFeedDeps = {},
-): Promise<RunReport & { slackNotified: boolean; newListings: ListingForAgent[] }> {
+): Promise<
+  RunReport & {
+    slackNotified: boolean;
+    slackPostingsNotified: number;
+    newListings: ListingForAgent[];
+  }
+> {
   const settings = deps.settings ?? loadSettings();
   const run = deps.run ?? runScrapePipeline;
   const postError = deps.postError ?? postRuntimeError;
+  const postPosting = deps.postPosting ?? postNewPosting;
   log.info(
     `scrape start group=${input.groupId} imageMode=${process.env.HOMIE_IMAGE_UPLOAD_MODE ?? "noop"}`,
   );
@@ -217,7 +232,66 @@ export async function scrapeFacebookGroupFeed(
     }
   }
 
-  return { ...report, slackNotified, newListings };
+  let slackPostingsNotified = 0;
+  if (report.status === "ok" && report.postsNew > 0) {
+    const token = settings.slackBotToken;
+    const channel = settings.slackNewPostingsChannelId;
+    if (!token || !channel) {
+      log.error(
+        `Scrape found ${report.postsNew} new post(s) but Slack new-postings not configured (SLACK_BOT_TOKEN / SLACK_STAGING_NEW_POSTINGS_CHANNEL_ID for staging, or SLACK_NEW_POSTINGS_CHANNEL_ID)`,
+      );
+    } else if (newListings.length > 0) {
+      for (const listing of newListings) {
+        try {
+          await postPosting({
+            botToken: token,
+            channelId: channel,
+            message: formatNewPostingMessage({
+              postId: listing.postId,
+              text: listing.text,
+              url: listing.url,
+              groupId: input.groupId,
+              groupUrl: input.groupUrl,
+              env: settings.lane,
+            }),
+          });
+          slackPostingsNotified += 1;
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          log.error(
+            `failed posting new listing to Slack postId=${listing.postId}: ${msg}`,
+          );
+        }
+      }
+      if (slackPostingsNotified > 0) {
+        log.info(
+          `Posted ${slackPostingsNotified} new listing(s) to Slack new-postings`,
+        );
+      }
+    } else {
+      try {
+        await postPosting({
+          botToken: token,
+          channelId: channel,
+          message: formatNewPostingMessage({
+            postId: `(batch ${report.postsNew})`,
+            text: `Scrape batch postsNew=${report.postsNew} postsSeen=${report.postsSeen} (row load failed)`,
+            url: input.groupUrl,
+            groupId: input.groupId,
+            groupUrl: input.groupUrl,
+            env: settings.lane,
+          }),
+        });
+        slackPostingsNotified = 1;
+        log.info("Posted scrape batch summary to Slack new-postings");
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        log.error(`failed posting scrape batch summary to Slack: ${msg}`);
+      }
+    }
+  }
+
+  return { ...report, slackNotified, slackPostingsNotified, newListings };
 }
 
 export type NotifyListingAgentFireAndForgetInput = NotifyListingAgentPayload & {

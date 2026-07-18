@@ -8,6 +8,24 @@ export type SlackNotifyConfig = {
   fetchImpl?: SlackFetch;
 };
 
+/**
+ * Lane-aware #homie-new-postings channel.
+ * Staging never falls back to the production channel.
+ * Optional HOMIE_INGEST_SLACK_CHANNEL_ID overrides the lane default.
+ */
+export function resolveNewPostingsChannelId(
+  env: NodeJS.ProcessEnv = process.env,
+): string | undefined {
+  const explicit = env.HOMIE_INGEST_SLACK_CHANNEL_ID?.trim();
+  if (explicit) return explicit;
+
+  const lane = (env.HOMIE_LANE ?? env.HOMIE_ENV ?? "local").toLowerCase();
+  if (lane === "staging") {
+    return env.SLACK_STAGING_NEW_POSTINGS_CHANNEL_ID?.trim() || undefined;
+  }
+  return env.SLACK_NEW_POSTINGS_CHANNEL_ID?.trim() || undefined;
+}
+
 export function createSlackNotifier(config: SlackNotifyConfig): SlackNotifier {
   const fetchImpl = config.fetchImpl ?? fetch;
 

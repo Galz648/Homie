@@ -336,3 +336,97 @@ export function formatScrapeFailureMessage(args: {
               ],
   });
 }
+
+export type NewPostingMessageInput = {
+  postId: string;
+  text: string;
+  url: string;
+  groupId: string;
+  groupUrl?: string;
+  env?: string;
+};
+
+export type NewPostingMessage = {
+  text: string;
+  body: string;
+  blocks: SlackBlock[];
+};
+
+/** One Slack message per newly upserted Facebook listing. */
+export function formatNewPostingMessage(
+  input: NewPostingMessageInput,
+): NewPostingMessage {
+  const env =
+    input.env ?? process.env.HOMIE_ENV ?? process.env.HOMIE_LANE ?? "local";
+  const preview = input.text.replace(/\s+/g, " ").trim().slice(0, 280);
+  const text = [
+    "[Homie][posting]",
+    `env=${env}`,
+    `group=${input.groupId}`,
+    `postId=${input.postId}`,
+  ].join(" ");
+
+  const lines = [
+    ":house: *New Facebook listing*",
+    `• env: \`${env}\``,
+    `• group: \`${input.groupId}\``,
+    `• postId: \`${input.postId}\``,
+    input.url ? `• url: ${input.url}` : null,
+    preview ? `• preview: ${preview}` : null,
+  ].filter(Boolean) as string[];
+
+  const body = lines.join("\n");
+  return {
+    text,
+    body,
+    blocks: [
+      {
+        type: "section",
+        text: { type: "mrkdwn", text: body },
+      },
+    ],
+  };
+}
+
+export async function postNewPosting(args: {
+  botToken: string;
+  channelId: string;
+  message: NewPostingMessage | string;
+}): Promise<void> {
+  const formatted =
+    typeof args.message === "string"
+      ? {
+          text: args.message,
+          body: args.message,
+          blocks: [
+            {
+              type: "section",
+              text: { type: "mrkdwn", text: args.message },
+            },
+          ] satisfies SlackBlock[],
+        }
+      : args.message;
+
+  const resp = await fetch("https://slack.com/api/chat.postMessage", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${args.botToken}`,
+      "Content-Type": "application/json; charset=utf-8",
+    },
+    body: JSON.stringify({
+      channel: args.channelId,
+      text: formatted.text,
+      blocks: formatted.blocks,
+      mrkdwn: true,
+    }),
+  });
+
+  if (!resp.ok) {
+    throw new Error(`Slack HTTP ${resp.status}`);
+  }
+
+  const data = (await resp.json()) as { ok?: boolean; error?: string };
+  if (!data.ok) {
+    throw new Error(`Slack chat.postMessage failed: ${data.error}`);
+  }
+}

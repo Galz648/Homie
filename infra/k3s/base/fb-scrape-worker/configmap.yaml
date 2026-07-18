@@ -12,6 +12,7 @@ data:
   HOMIE_FACEBOOK_STATE_PATH: /var/homie/facebook_state.json
   HOMIE_IMAGE_UPLOAD_MODE: spaces
   # Staging Slack channel resolution (see scrapers/facebook/README.md)
+  # runtime-errors + new-postings from Secret homie-slack
   HOMIE_LANE: staging
   HOMIE_SCRAPE_TZ: Asia/Jerusalem
   # Optional CF Agent fire-and-forget webhook (Temporal → Agent).
