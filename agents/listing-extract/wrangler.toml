@@ -1,0 +1,16 @@
+# Cloudflare Worker: listing-extract Agent stub
+#
+# Env vars (wrangler secrets / dashboard — never commit real values):
+#   HOMIE_CF_AGENT_WEBHOOK_SECRET  — Temporal → Agent shared secret
+#   HOMIE_INGEST_BEARER_TOKEN      — Agent → Homie ingest Bearer
+#   HOMIE_INGEST_URL               — Homie ingest base URL
+#   HOMIE_CF_AGENT_WEBHOOK_AUTH    — bearer (default) | hmac
+#
+# Postgres is Homie's concern only — this Worker has no DB binding.
+
+name = "homie-listing-extract"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+
+[vars]
+HOMIE_CF_AGENT_WEBHOOK_AUTH = "bearer"
