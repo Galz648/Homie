@@ -7,6 +7,7 @@ import {
   pgTable,
   text,
   timestamp,
+  unique,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -21,6 +22,17 @@ export const listingTypeEnum = pgEnum("ListingType", [
   "rent",
   "sublet",
   "roommate",
+]);
+
+/** Last scrape run outcome for a source/group cursor (W6a). */
+export const scrapeCursorStatusEnum = pgEnum("ScrapeCursorStatus", [
+  "never",
+  "ok",
+  "auth",
+  "empty_suspect",
+  "parse",
+  "throttle",
+  "crash",
 ]);
 
 export const apartmentPosts = pgTable(
@@ -62,5 +74,42 @@ export const apartmentPosts = pgTable(
   ],
 );
 
+/**
+ * Per-group scrape watermark (W6a).
+ * Advance lastPostId / lastPostedAt only after a successful upsert batch.
+ */
+export const scrapeCursors = pgTable(
+  "scrape_cursors",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    source: text().notNull().default("facebook_group"),
+    groupId: text().notNull(),
+    groupUrl: text().notNull(),
+    lastPostId: text(),
+    lastPostedAt: timestamp({ withTimezone: true, precision: 3, mode: "date" }),
+    lastRunAt: timestamp({ withTimezone: true, precision: 3, mode: "date" }),
+    lastStatus: scrapeCursorStatusEnum().notNull().default("never"),
+    lastError: text(),
+    postsSeen: integer().notNull().default(0),
+    postsNew: integer().notNull().default(0),
+    createdAt: timestamp({ withTimezone: true, precision: 3, mode: "date" })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp({ withTimezone: true, precision: 3, mode: "date" })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    unique("scrape_cursors_source_group_id_unique").on(
+      table.source,
+      table.groupId,
+    ),
+    index("scrape_cursors_last_status_idx").on(table.lastStatus),
+  ],
+);
+
 export type ApartmentPost = typeof apartmentPosts.$inferSelect;
 export type NewApartmentPost = typeof apartmentPosts.$inferInsert;
+export type ScrapeCursor = typeof scrapeCursors.$inferSelect;
+export type NewScrapeCursor = typeof scrapeCursors.$inferInsert;
