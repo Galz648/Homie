@@ -10,7 +10,7 @@ Repo: `/Users/galzafar/Documents/GitHub/homie-worktrees/homie-do-droplet`
 - deps: none
 - parallel_group: A
 - worktree: /Users/galzafar/Documents/GitHub/homie-worktrees/facebook-mock
-- branch: feat/homie-do-droplet/facebook-mock
+- branch: pkg/facebook-mock
 - write_paths: infra/k3s/base/facebook-mock
 - ac_command: test -f infra/k3s/base/facebook-mock/kustomization.yaml && test -f infra/k3s/base/facebook-mock/deployment.yaml && test -f infra/k3s/base/facebook-mock/service.yaml
 
@@ -22,7 +22,7 @@ Clinic shape (Deployment + Service + kustomization), Homie-named, mocks Facebook
 - deps: none
 - parallel_group: A
 - worktree: /Users/galzafar/Documents/GitHub/homie-worktrees/staging-ci
-- branch: feat/homie-do-droplet/staging-ci
+- branch: pkg/staging-ci
 - write_paths: infra/k3s/platform/argo-workflows/templates/homie-ci-staging.yaml, infra/k3s/platform/argo-workflows/examples/ci-staging-poll-cronjob.yaml
 - ac_command: test -f infra/k3s/platform/argo-workflows/templates/homie-ci-staging.yaml && test -f infra/k3s/platform/argo-workflows/examples/ci-staging-poll-cronjob.yaml && grep -q staging infra/k3s/platform/argo-workflows/examples/ci-staging-poll-cronjob.yaml
 
@@ -34,7 +34,7 @@ Clinic shape (Deployment + Service + kustomization), Homie-named, mocks Facebook
 - deps: none
 - parallel_group: A
 - worktree: /Users/galzafar/Documents/GitHub/homie-worktrees/ci-docs-pull
-- branch: feat/homie-do-droplet/ci-docs-pull
+- branch: pkg/ci-docs-pull
 - write_paths: infra/k3s/platform/argo-workflows/README.md, infra/k3s/platform/ci-lane/README.md
 - ac_command: grep -qiE 'pull|poll' infra/k3s/platform/argo-workflows/README.md && ! grep -qiE 'HOMIE_K3S_KUBECONFIG.*primary' infra/k3s/platform/argo-workflows/README.md
 
@@ -46,7 +46,7 @@ Document pull/poll primary CI; demote GHA kubeconfig submit.
 - deps: facebook-mock
 - parallel_group: B
 - worktree: /Users/galzafar/Documents/GitHub/homie-worktrees/staging-overlay
-- branch: feat/homie-do-droplet/staging-overlay
+- branch: pkg/staging-overlay
 - write_paths: infra/k3s/overlays/staging
 - ac_command: test -f infra/k3s/overlays/staging/kustomization.yaml && grep -q facebook-mock infra/k3s/overlays/staging/kustomization.yaml
 
@@ -58,7 +58,7 @@ Wire staging overlay to include facebook-mock (clinic overlay pattern).
 - deps: none
 - parallel_group: A
 - worktree: /Users/galzafar/Documents/GitHub/homie-worktrees/slack-apply-scripts
-- branch: feat/homie-do-droplet/slack-apply-scripts
+- branch: pkg/slack-apply-scripts
 - write_paths: scripts/apply-grafana-slack-secret.sh, scripts/apply-argocd-slack-secret.sh
 - ac_command: test -x scripts/apply-grafana-slack-secret.sh && test -x scripts/apply-argocd-slack-secret.sh
 

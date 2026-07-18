@@ -10,3 +10,16 @@
 - Root worktree: `homie-worktrees/homie-do-droplet` on `feat/homie-do-droplet`
 - Loop rebased onto parallelization template; plan.md with 5 packages (group A/B)
 - Agent move_to_root failed (origin/infra missing); continue via worktree path
+
+## plan_gate
+
+- plan-packages: pass
+- disjoint-paths: pass
+- plan-approved: pass (operator: run the plan)
+- next: group A worktrees
+
+## delivery-1
+
+- group A+B packages merged; worktrees cleaned
+- PARALLEL-REPORT written
+- blocker for full delivery_gate: droplet not provisioned yet (operator TF)
