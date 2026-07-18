@@ -4,7 +4,8 @@ Root branch: `feat/homie-do-droplet` @ `24b7a59`
 Worktree root: `/Users/galzafar/Documents/GitHub/homie-worktrees`
 
 Note: package branches use `pkg/<id>` (git cannot nest under `feat/homie-do-droplet/…`
-while that branch exists). Each package ran its plan `ac_command` before merge.
+while that branch exists). Each package ran its plan `ac_command` before merge;
+all five recorded **AC pass** (exit 0).
 
 ## facebook-mock
 
