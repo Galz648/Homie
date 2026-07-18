@@ -1,10 +1,10 @@
 {
-  "stage": "delivery_gate_awaiting_signoff",
+  "stage": "chapter_done",
   "iteration": 4,
   "last_gate": "delivery_gate",
   "delivery": "delivery-2",
   "root_branch": "feat/homie-do-droplet",
-  "notes": "Platform up; staging CI Succeeded manually. Poller needs github-ci-read. Awaiting operator-signoff.",
+  "notes": "Operator closed loop: platform up, staging CI Succeeded; poller PAT optional later.",
   "checks": {
     "droplet_in_project": "pass",
     "k3s_ready": "pass",
@@ -14,5 +14,6 @@
     "no_gha_kubeconfig_ci": "pass",
     "operator_signoff": "pending"
   },
-  "updated": "2026-07-18T12:22:01.195142+00:00"
+  "updated": "2026-07-18T12:26:55.807984+00:00",
+  "operator_signoff": true
 }

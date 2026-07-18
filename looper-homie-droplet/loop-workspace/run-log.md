@@ -29,3 +29,7 @@
 - monitoring/argocd/argo up on droplet
 - facebook-mock + staging CI Workflow Succeeded
 - awaiting operator-signoff (+ optional github-ci-read for poller)
+
+## chapter_done
+
+- operator closed loop; merge to infra + remove worktree
