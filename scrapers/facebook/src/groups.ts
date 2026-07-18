@@ -27,6 +27,12 @@ export const facebookGroups: FacebookGroup[] = [
     name: "Tel Aviv Roommates",
     enabled: true,
   },
+  {
+    id: "7298031916930520",
+    url: "https://www.facebook.com/groups/7298031916930520",
+    name: "group-7298031916930520",
+    enabled: true,
+  },
 ];
 
 export function groupUrl(group: FacebookGroup): string {

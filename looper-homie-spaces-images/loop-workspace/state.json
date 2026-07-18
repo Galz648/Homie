@@ -1,0 +1,20 @@
+{
+  "stage": "chapter_done",
+  "iteration": 2,
+  "last_gate": "delivery_gate",
+  "delivery": "delivery-1",
+  "root_branch": "feat/homie-spaces-images",
+  "root_sha": "f26332a",
+  "consent": {
+    "judge_egress": "current-session-substitute"
+  },
+  "notes": "Live Spaces smoke deferred pending terraform apply + spaces.env",
+  "checks": {
+    "plan_packages": "pass",
+    "disjoint_paths": "pass",
+    "report_schema": "pass",
+    "worktrees_cleaned": "pass",
+    "merges_complete": "pass_session_judge"
+  },
+  "updated": "2026-07-18T13:44:23.335940+00:00"
+}

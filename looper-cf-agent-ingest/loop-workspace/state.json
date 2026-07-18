@@ -1,0 +1,27 @@
+{
+  "status": "completed",
+  "iteration": 1,
+  "last_gate": "delivery_gate",
+  "consent": {
+    "judge-1": {
+      "granted_at": "2026-07-18T17:02:00Z",
+      "scope": ["plan", "parallel-report", "package-diffs"],
+      "operator": "user"
+    }
+  },
+  "blockers": [],
+  "root_branch": "feat/cf-agent-ingest",
+  "packages_planned": [
+    "schema-listings",
+    "ingest-api",
+    "temporal-ff",
+    "agent-contract"
+  ],
+  "packages_done": [
+    "schema-listings",
+    "ingest-api",
+    "temporal-ff",
+    "agent-contract"
+  ],
+  "head_note": "Package tips through 742bed6; branch may have later commits (e.g. f7e0e45) beyond this loop."
+}

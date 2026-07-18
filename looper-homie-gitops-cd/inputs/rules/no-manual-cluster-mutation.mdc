@@ -1,0 +1,101 @@
+---
+description: "Hard ban on manual cluster mutations. Git + Argo Sync only for staging/prod desired state."
+alwaysApply: true
+---
+
+# No manual cluster interventions (GitOps)
+
+## Agent mandate
+
+Before any `kubectl` that **writes** to `homie-staging` / `homie-production` /
+`argocd` Applications’ managed resources, stop and follow this rule.
+
+**Desired state changes go to git first.** Argo CD Sync applies them.
+Manual live edits are a defect, not a shortcut.
+
+If you catch yourself about to “just set the image / apply the Job / edit the
+Deploy so we can continue” — **do not**. That is the failure mode that causes
+reconciler fights and configuration drift.
+
+## Forbidden (staging / production)
+
+Do **not** run these against Argo-managed workloads (apps under
+`homie-workloads` / `homie-workloads-production`, migrate hooks, worker, etc.):
+
+| Forbidden | Why |
+|-----------|-----|
+| `kubectl set image` | Bypasses git pin; Argo reverts or drifts |
+| `kubectl edit` / `kubectl patch` on Deployments, Services, ConfigMaps, Jobs owned by Argo | Live ≠ git |
+| `kubectl apply -f` / `apply -k` of `infra/k3s/overlays/{staging,production}` | Bypasses Argo; creates last-applied drift |
+| `kubectl apply` of one-off migrate Jobs/ConfigMaps “to unblock” | Leaves OutOfSync; migrate belongs in git PreSync |
+| `kubectl delete` of Argo-managed resources to “force recreate” (except documented break-glass) | Masks Sync bugs |
+| Deleting `argocd-repo-server` / routine `Replace=true` Sync to make a pin stick | Treats symptoms; fix git render + Sync |
+| Changing container env/args/replicas on a live Pod/Deploy for a “quick test” | Use git + Sync or local overlay |
+
+## Allowed without a git commit
+
+| Allowed | Scope |
+|---------|--------|
+| `kubectl get/describe/logs/top` | Read-only |
+| `kubectl exec` into Temporal (or documented trigger) to **start/signal workflows** | Runtime control, not desired-state |
+| `kubectl -n argo create -f` from **committed** `examples/*.yaml` / WorkflowTemplates already applied from git | Submit work; spec still in repo |
+| `kubectl -n argo apply -f templates/…` | **Only until** templates are themselves an Argo app — prefer committing template changes first; do not use this for app Deployments |
+| Out-of-band Secrets via `scripts/apply-homie-*-secret.sh` | Documented exception; values never in git |
+| Argo: `annotate … refresh`, `patch` Application **operation.sync** | Reconcile to git — not change desired state |
+| Local lane (`homie` / `overlays/local`) | Dev; still prefer commit when sharing |
+
+## Required path for common goals
+
+### Ship new worker code / Slack fixes / scrape changes
+
+1. Commit + push to `staging` (or `main` for prod).
+2. Submit **committed** `homie-build-images` (or wait for build poll when wired).
+3. Commit `chore(k3s): pin … newTag: staging-<sha>` in
+   `infra/k3s/overlays/<lane>/kustomization.yaml`.
+4. Push → Argo hard-refresh → Sync.
+5. **Verify:** live Deployment image == git `images[].newTag` **and**
+   Application `sync=Synced`.  
+   Sync `phase=Succeeded` alone is **not** enough.
+
+**Never** bridge a stuck pin with `kubectl set image`.
+
+### Schema / migrate
+
+1. Put SQL + Job/ConfigMap changes in git (`drizzle/`, `scrape-db-migrate`, overlay env).
+2. Push → Argo Sync (PreSync migrate runs from the **lane branch**).
+3. Do not `kubectl apply` a one-off migrate Job as the lasting fix.
+
+### Env / config
+
+Follow `iac-env-config.mdc`: edit ConfigMap/overlay in git → Sync.  
+Do not `kubectl set env` / edit live ConfigMaps for Argo-managed apps.
+
+## Decision tree (agents)
+
+```text
+Need cluster behavior to change?
+  ├─ Is it only secrets/values? → apply-*-secret.sh (out of band)
+  ├─ Is it start/signal a workflow? → exec/Temporal trigger (no manifest edit)
+  ├─ Is it desired state (image, replicas, env, Job, probe, …)?
+  │     → edit git → push → Argo Sync → verify live == git
+  └─ “But Sync is stuck / wrong tag”?
+        → diagnose git tip vs Application revision vs rendered kustomize
+        → fix git or Argo source/cache
+        → NOT kubectl patch/set image
+```
+
+## Break-glass (rare)
+
+Label the action **break-glass** in the reply to the user. Then:
+
+1. Smallest possible write; prefer Secrets-only or read-only.
+2. Same change (or revert) committed to git within the same working session when possible.
+3. Argo Sync until `Synced` and live matches git; remove leftover imperative objects.
+
+If the user asks you to `set image` or `apply -k` staging to “save time,” refuse the bypass, explain drift, and offer the git → pin → Sync path instead.
+
+## Related
+
+- `gitops-source-of-truth.mdc` — longer rationale / anti-patterns  
+- `iac-env-config.mdc` — env templates first  
+- `infra/k3s/platform/argo-workflows/README.md` — CI / build / pin loop  
