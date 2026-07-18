@@ -1,8 +1,10 @@
 import { eq } from "drizzle-orm";
 import { createDb, apartmentPosts } from "./db/index.ts";
-import type { worker } from "../alchemy.run.ts";
 
-type WorkerEnv = typeof worker.Env;
+/** Legacy Worker handler — Cloudflare deploy removed; kept as reference only. */
+type WorkerEnv = {
+  DATABASE_URL: string;
+};
 
 export default {
   async fetch(request: Request, env: WorkerEnv): Promise<Response> {
@@ -44,7 +46,7 @@ export default {
 
     return new Response(null, { status: 404 });
   },
-} satisfies ExportedHandler<Env>;
+};
 
 function corsHeaders(request: Request): HeadersInit {
   const origin = request.headers.get("Origin") || "";
