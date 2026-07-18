@@ -53,3 +53,16 @@ output "homie_data_volumes" {
     }
   }
 }
+
+output "spaces_images" {
+  description = "Spaces buckets for scraped listing photos (wire HOMIE_IMAGES_BUCKET per lane)."
+  value = {
+    for k, v in digitalocean_spaces_bucket.images : k => {
+      name          = v.name
+      region        = v.region
+      bucket_domain = v.bucket_domain_name
+      endpoint      = "https://${v.region}.digitaloceanspaces.com"
+      # App: HOMIE_IMAGES_BUCKET=<name> HOMIE_IMAGES_BASE_URL=https://<name>.<region>.cdn.digitaloceanspaces.com
+    }
+  }
+}
