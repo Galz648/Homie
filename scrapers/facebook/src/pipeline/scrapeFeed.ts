@@ -67,7 +67,8 @@ async function collectVisiblePosts(page: Page, groupId: string): Promise<Scraped
             src.startsWith("http") &&
             /scontent|fbcdn|facebook\.com\/.*\.(jpg|jpeg|png|webp)/i.test(src)
           ) {
-            imageUrls.push(src.split("?")[0]!);
+            // Keep query string — fbcdn signs URLs with oh/oe/_nc_* params.
+            imageUrls.push(src);
           }
         }
       }

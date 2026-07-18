@@ -9,9 +9,83 @@
  *   HOMIE_SPACES_ENDPOINT   e.g. https://fra1.digitaloceanspaces.com
  *   HOMIE_SPACES_REGION     e.g. fra1
  *   HOMIE_SPACES_KEY / HOMIE_SPACES_SECRET
+ *
+ * Spaces downloads use authenticated HTTP: Playwright storageState cookies
+ * + browser-like Referer/User-Agent (bare fetch gets fbcdn 403).
  */
 import { createHash, randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+
+/** Chromium-ish UA — fbcdn often 403s Node's default undici UA. */
+export const FB_IMAGE_USER_AGENT =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+
+export const FB_IMAGE_REFERER = "https://www.facebook.com/";
+
+type StorageStateCookie = {
+  name?: unknown;
+  value?: unknown;
+  domain?: unknown;
+};
+
+type StorageStateFile = {
+  cookies?: StorageStateCookie[];
+};
+
+/**
+ * Build a Cookie header from Playwright storageState JSON.
+ * Includes facebook.com / fbcdn / facebook.net cookies (session + CDN).
+ */
+export function cookieHeaderFromStorageState(raw: unknown): string {
+  if (!raw || typeof raw !== "object") return "";
+  const cookies = (raw as StorageStateFile).cookies;
+  if (!Array.isArray(cookies)) return "";
+
+  const parts: string[] = [];
+  for (const c of cookies) {
+    if (typeof c?.name !== "string" || typeof c?.value !== "string") continue;
+    if (!c.name.trim()) continue;
+    const domain = typeof c.domain === "string" ? c.domain.toLowerCase() : "";
+    // Session cookies are usually .facebook.com; some CDN tokens use .fbcdn.net.
+    // Always include when domain is missing (Chrome import may omit it).
+    const okDomain =
+      !domain ||
+      domain.endsWith("facebook.com") ||
+      domain.endsWith("fbcdn.net") ||
+      domain.endsWith("facebook.net");
+    if (!okDomain) continue;
+    parts.push(`${c.name}=${c.value}`);
+  }
+  return parts.join("; ");
+}
+
+/** Read Playwright storageState path → Cookie header. Throws if unreadable. */
+export async function loadCookieHeaderFromStatePath(
+  statePath: string,
+): Promise<string> {
+  try {
+    const text = await readFile(statePath, "utf8");
+    return cookieHeaderFromStorageState(JSON.parse(text) as unknown);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(
+      `failed to load Facebook session cookies from ${statePath}: ${msg}`,
+    );
+  }
+}
+
+export function facebookImageRequestHeaders(cookieHeader?: string): HeadersInit {
+  const headers: Record<string, string> = {
+    "User-Agent": FB_IMAGE_USER_AGENT,
+    Referer: FB_IMAGE_REFERER,
+    Accept: "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+  };
+  if (cookieHeader?.trim()) {
+    headers.Cookie = cookieHeader.trim();
+  }
+  return headers;
+}
 
 export type ImageUploadMode = "noop" | "spaces";
 
@@ -109,10 +183,27 @@ export async function uploadImageToSpaces(
   return `${cfg.baseUrl}/${key}`;
 }
 
-async function fetchImageBytes(
+export type FetchImageBytesOpts = {
+  /** Playwright storageState path — cookies attached to CDN requests. */
+  statePath?: string;
+  /** Pre-built Cookie header (tests / callers that already loaded state). */
+  cookieHeader?: string;
+  fetchImpl?: typeof fetch;
+};
+
+export async function fetchImageBytes(
   url: string,
+  opts: FetchImageBytesOpts = {},
 ): Promise<{ body: Uint8Array; contentType: string }> {
-  const resp = await fetch(url, { redirect: "follow" });
+  let cookieHeader = opts.cookieHeader;
+  if (cookieHeader === undefined && opts.statePath) {
+    cookieHeader = await loadCookieHeaderFromStatePath(opts.statePath);
+  }
+  const fetchImpl = opts.fetchImpl ?? fetch;
+  const resp = await fetchImpl(url, {
+    redirect: "follow",
+    headers: facebookImageRequestHeaders(cookieHeader),
+  });
   if (!resp.ok) {
     throw new Error(`image fetch HTTP ${resp.status} for ${url}`);
   }
@@ -128,14 +219,19 @@ async function fetchImageBytes(
  * spaces: download each URL and PutObject to Spaces; return public CDN URLs.
  *
  * Called from the Temporal scrape activity path (`scrapeFacebookGroupFeed` →
- * `upsertScrapedPosts`).
+ * `upsertScrapedPosts`). Pass `statePath` so Spaces mode can authenticate CDN.
  */
 export async function persistListingImages(
   sourceUrls: string[],
   deps: {
     mode?: ImageUploadMode;
     upload?: UploadImageFn;
-    fetchBytes?: typeof fetchImageBytes;
+    fetchBytes?: (
+      url: string,
+      opts?: FetchImageBytesOpts,
+    ) => Promise<{ body: Uint8Array; contentType: string }>;
+    /** Playwright storageState — required for authenticated Spaces downloads. */
+    statePath?: string;
   } = {},
 ): Promise<string[]> {
   const mode = deps.mode ?? resolveImageUploadMode();
@@ -156,10 +252,18 @@ export async function persistListingImages(
     })();
 
   const fetchBytes = deps.fetchBytes ?? fetchImageBytes;
+  // Load cookies once per post batch (not per URL).
+  let cookieHeader: string | undefined;
+  if (deps.statePath && !deps.fetchBytes) {
+    cookieHeader = await loadCookieHeaderFromStatePath(deps.statePath);
+  }
   const out: string[] = [];
   for (const url of sourceUrls) {
     if (!url?.trim()) continue;
-    const { body, contentType } = await fetchBytes(url);
+    const { body, contentType } = await fetchBytes(url, {
+      statePath: deps.statePath,
+      cookieHeader,
+    });
     out.push(await upload({ sourceUrl: url, body, contentType }));
   }
   return out;

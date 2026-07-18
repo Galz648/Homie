@@ -81,7 +81,10 @@ Activity `scrapeFacebookGroupFeed` → upsert → `persistListingImages`.
 | **spaces** | `HOMIE_IMAGE_UPLOAD_MODE=spaces` | Download → PutObject to DO Spaces → persist CDN URLs |
 
 ```bash
-# Manual one-image smoke (needs spaces.env + real bucket):
+# Live CDN download e2e (needs facebook_state.json):
+bun run check:image-fetch-online
+
+# Manual one-image Spaces PutObject smoke (needs spaces.env + real bucket):
 bun run smoke:spaces-upload
 ```
 
@@ -95,6 +98,7 @@ bun run check:temporal
 bun run check:session-ops
 bun run check:pipeline
 bun run check:e2e-mocks          # automated CI gate (no live Facebook)
+bun run check:image-fetch-online # manual live CDN auth download only
 bun run preprod:e2e-online       # manual live e2e — before prod (see docs/workstreams.md W7)
 bun run smoke:spaces-upload      # manual Spaces one-image upload
 ```

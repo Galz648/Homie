@@ -123,8 +123,8 @@ export type ScrapeFacebookGroupFeedDeps = {
  *
  * Image path: `loadSettings()` pulls `~/.config/homie/spaces.env` (or lane
  * Secret). When `HOMIE_IMAGE_UPLOAD_MODE=spaces`, upsert downloads feed image
- * URLs and PutObject to DO Spaces; Spaces CDN URLs land in
- * `raw_facebook_posts.images`. Local mocks keep mode=`noop`.
+ * URLs with Facebook session cookies + Referer/UA, then PutObject to DO Spaces;
+ * Spaces CDN URLs land in `raw_facebook_posts.images`. Local mocks keep mode=`noop`.
  *
  * Non-ok reports (crash, empty_suspect, …) post to `#homie-runtime-errors`.
  */
