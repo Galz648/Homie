@@ -1,0 +1,55 @@
+# Traefik ingress controller for Homie k3s (Traefik disabled in k3s install).
+#
+# Exposes web :80 and websecure :443 via ServiceLB (klipper).
+# Workloads publish standard Ingress (ingressClassName: traefik).
+#
+# Install:
+#   KUBECONFIG=~/.kube/homie-k3s-admin.yaml ./install.sh --wait --timeout 10m
+#
+# Firewall (Terraform): tcp/80 + tcp/443 on the droplet — see
+# infra/terraform/stacks/k3s/main.tf. Do not use ad-hoc NodePorts for CF Agents.
+providers:
+  kubernetesIngress:
+    enabled: true
+    # Allow Ingress without a host (path-only) for staging IP callbacks.
+    allowEmptyServices: true
+  kubernetesCRD:
+    enabled: true
+
+ingressClass:
+  enabled: true
+  isDefaultClass: true
+  name: traefik
+
+ports:
+  web:
+    port: 8000
+    exposedPort: 80
+    protocol: TCP
+  websecure:
+    port: 8443
+    exposedPort: 443
+    protocol: TCP
+    tls:
+      enabled: false
+
+service:
+  enabled: true
+  type: LoadBalancer
+
+# Keep the controller small on the droplet.
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    memory: 512Mi
+
+logs:
+  general:
+    level: INFO
+
+# No dashboard Ingress by default (port-forward if needed).
+ingressRoute:
+  dashboard:
+    enabled: false

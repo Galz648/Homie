@@ -38,6 +38,7 @@ Homie-named Helm wrappers (need `helm`, `kubectl`, and a Ready cluster context).
 | [`k3s/monitoring/install.sh`](./k3s/monitoring/install.sh) | Prometheus + Grafana + Loki + Alloy | `monitoring` | `homie-monitoring` |
 | [`k3s/argocd/install.sh`](./k3s/argocd/install.sh) | Argo CD | `argocd` | `homie-argocd` |
 | [`k3s/platform/argo-workflows/install.sh`](./k3s/platform/argo-workflows/install.sh) | Argo Workflows | `argo` | `homie-argo-workflows` |
+| [`k3s/platform/traefik/install.sh`](./k3s/platform/traefik/install.sh) | Traefik Ingress (80/443) | `traefik` | `homie-traefik` |
 
 Optional: [`k3s/monitoring/install-lite.sh`](./k3s/monitoring/install-lite.sh) — logs-only stack when Docker RAM is tight.
 

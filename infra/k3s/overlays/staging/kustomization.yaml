@@ -9,6 +9,7 @@ resources:
   - ../../base/scrape-db-migrate
   - ../../base/fb-scrape-worker
   - ../../base/homie-ingest
+  - ingress-homie-ingest.yaml
 patches:
   - path: patch-temporal-svc-clusterip.yaml
   - path: patch-temporal-ui-svc-clusterip.yaml
@@ -20,7 +21,6 @@ patches:
   - path: patch-fb-scrape-worker-agent-webhook.yaml
   - path: patch-homie-ingest-image.yaml
   - path: patch-homie-ingest-env.yaml
-  - path: patch-homie-ingest-nodeport.yaml
 # Zot — in-cluster build pins worker to staging-196eb98.
 images:
   - name: fb-scrape-worker
