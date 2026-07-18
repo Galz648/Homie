@@ -8,6 +8,7 @@ resources:
   - ../../base/scrape-temporal
   - ../../base/scrape-db-migrate
   - ../../base/fb-scrape-worker
+  - ../../base/homie-ingest
 patches:
   - path: patch-temporal-svc-clusterip.yaml
   - path: patch-temporal-ui-svc-clusterip.yaml
@@ -16,8 +17,15 @@ patches:
   # Explicit image patch — ensures Argo desired state matches pin even if
   # images: transform is missed by a reconciler cache edge case.
   - path: patch-fb-scrape-worker-image.yaml
+  - path: patch-fb-scrape-worker-agent-webhook.yaml
+  - path: patch-homie-ingest-image.yaml
+  - path: patch-homie-ingest-env.yaml
+  - path: patch-homie-ingest-nodeport.yaml
 # Zot — in-cluster build pins worker to staging-989c1c4 (Argo OutOfSync until Sync).
 images:
   - name: fb-scrape-worker
     newName: zot.local:5000/homie/fb-scrape-worker
     newTag: staging-989c1c4
+  - name: homie-ingest
+    newName: homie-ingest
+    newTag: staging-wire

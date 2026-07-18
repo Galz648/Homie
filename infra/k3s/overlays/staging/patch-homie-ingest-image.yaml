@@ -1,0 +1,13 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: homie-ingest
+spec:
+  template:
+    spec:
+      containers:
+        - name: ingest
+          # Imported via: docker save | ssh … k3s ctr images import
+          # Keep in sync with kustomization.yaml images[].newTag for homie-ingest.
+          image: homie-ingest:staging-wire
+          imagePullPolicy: IfNotPresent
