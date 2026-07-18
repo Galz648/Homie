@@ -14,6 +14,12 @@ locals {
 resource "digitalocean_ssh_key" "k3s" {
   name       = "${var.droplet_name}-key"
   public_key = local.ssh_public_key
+
+  # Same pubkey may already exist on the DO account under another name
+  # (e.g. clinic-k3s-key). Import that key; do not rename it out from under clinic.
+  lifecycle {
+    ignore_changes = [name]
+  }
 }
 
 resource "digitalocean_droplet" "k3s" {

@@ -49,7 +49,7 @@ output "homie_data_volumes" {
       id         = v.id
       name       = v.name
       size_gb    = v.size
-      mount_path = local.homie_data_volumes[k].mount_path
+      mount_path = local.data_volumes[k].mount_path
     }
   }
 }
