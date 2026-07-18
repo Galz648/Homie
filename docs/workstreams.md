@@ -85,7 +85,7 @@ Suggested order: **W0 → W1 ∥ W2 → W3 → W4/W5 → W6a → W6 → W7**
 
 | Task | Notes | Status |
 |------|-------|--------|
-| W3.1 Data ownership | Postgres is source of truth for listings (`apartment_posts`) + watermarks (`scrape_cursors`). **Prod DB: Supabase. Staging: non-Supabase (e.g. in-cluster).** Photo blobs: **DigitalOcean Spaces**; `apartment_posts.images` stores Spaces URLs (or keys resolved via `IMAGES_BASE_URL`). No Supabase Storage. | next |
+| W3.1 Data ownership | Postgres is source of truth for listings (`apartment_posts`) + watermarks (`scrape_cursors`). **Prod DB: Supabase. Staging: non-Supabase (e.g. in-cluster).** Photo blobs: **DigitalOcean Spaces**; `apartment_posts.images` stores Spaces URLs via `HOMIE_IMAGES_BUCKET` / `HOMIE_IMAGES_BASE_URL`. No Supabase Storage. | **agreed** |
 | W3.2 Scraper role | TypeScript Temporal worker (`scrapers/facebook/`) writes listings → DB (direct or via API) | next |
 | W3.3 TypeScript role | API + Website read DB; Cloudflare Worker path retired — pick Node/Bun in-cluster or host | next |
 | W3.4 Write path | Prefer: scrape worker → service role / internal API → DB; avoid dual schemas | next |
@@ -103,7 +103,7 @@ Depends on W3.
 |------|-------|--------|
 | W4.1 API runtime | Container or documented host process; env `DATABASE_URL` | later |
 | W4.2 DB in/alongside cluster | In-cluster Postgres **or** Supabase remote (prod); migrate + seed | later |
-| W4.2b Listing image Spaces | Create DO Spaces buckets for scraped photos: `…-staging` and `…-production` (or Homie-named equivalents); document keys out-of-band; point scraper/API at env-specific bucket + public/CDN base URL | next |
+| W4.2b Listing image Spaces | TF: two Spaces buckets (`spaces_images` in `infra/terraform/stacks/k3s`); app env `HOMIE_IMAGE_UPLOAD_MODE=spaces` + `HOMIE_IMAGES_BUCKET` / `HOMIE_IMAGES_BASE_URL` / `HOMIE_SPACES_*` (keys out of band). Local e2e stays `noop`. | **in progress** (`feat/homie-spaces-images`) |
 | W4.3 Kustomize base | `infra/k3s/base/` Deployments/Services when ready | later |
 | W4.4 Local overlay | `overlays/local` wires images + secrets examples | later |
 
