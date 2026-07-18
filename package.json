@@ -11,6 +11,9 @@
     "db:studio": "drizzle-kit studio",
     "db:migrate:local": "bun scripts/local-db/migrate.ts",
     "db:seed": "bun run scripts/seed.ts",
+    "lint": "biome check --write --files-ignore-unknown=true",
+    "lint:check": "biome check --files-ignore-unknown=true",
+    "precommit:fast": "bash scripts/precommit-fast.sh",
     "prepare": "husky"
   },
   "dependencies": {
@@ -19,6 +22,7 @@
     "postgres": "^3.4.7"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.0.6",
     "drizzle-kit": "^0.31.4",
     "husky": "^9.1.7",
     "typescript": "^5.8.3"

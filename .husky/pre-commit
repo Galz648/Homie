@@ -1,5 +1,6 @@
 #!/usr/bin/env sh
 # Pre-commit gate — keep this fast and env-independent.
 # DB migrations are NOT run here; see docs/workstreams.md (W5 / migrate timing).
-# Add lint/typecheck/drift checks here as they land.
-:
+# W5.2: Biome (lint+format) on staged TS + package typecheck.
+# W5.4: docs/config-only commits skip automatically.
+bash "$(dirname -- "$0")/../scripts/precommit-fast.sh"

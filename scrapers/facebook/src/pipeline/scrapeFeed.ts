@@ -15,8 +15,7 @@ export type ScrapeFeedResult = {
   stopReason: StopReason;
 };
 
-const POST_HREF_RE =
-  /\/groups\/[^/]+\/(?:posts|permalink)\/(\d+)/i;
+const POST_HREF_RE = /\/groups\/[^/]+\/(?:posts|permalink)\/(\d+)/i;
 
 function postIdFromHref(href: string): string | null {
   const m = href.match(POST_HREF_RE);
@@ -30,9 +29,7 @@ function absUrl(href: string): string {
 
 async function collectVisiblePosts(page: Page, groupId: string): Promise<ScrapedPost[]> {
   const hrefs = await page.$$eval("a[href]", (anchors) =>
-    anchors
-      .map((a) => (a as HTMLAnchorElement).getAttribute("href") || "")
-      .filter(Boolean),
+    anchors.map((a) => (a as HTMLAnchorElement).getAttribute("href") || "").filter(Boolean),
   );
 
   const byId = new Map<string, ScrapedPost>();
@@ -54,10 +51,7 @@ async function collectVisiblePosts(page: Page, groupId: string): Promise<Scraped
     for (const a of Array.from(document.querySelectorAll("a[href]"))) {
       const href = a.getAttribute("href") || "";
       if (!/\/(posts|permalink)\//i.test(href)) continue;
-      const root =
-        a.closest("[role='article']") ||
-        a.closest("div") ||
-        a.parentElement;
+      const root = a.closest("[role='article']") || a.closest("div") || a.parentElement;
       const text = (root?.textContent || "").replace(/\s+/g, " ").trim().slice(0, 2000);
       const imageUrls: string[] = [];
       if (root) {
@@ -88,7 +82,8 @@ async function collectVisiblePosts(page: Page, groupId: string): Promise<Scraped
       for (const u of m.imageUrls) {
         if (seen.has(u)) continue;
         seen.add(u);
-        (existing.imageUrls ??= []).push(u);
+        if (!existing.imageUrls) existing.imageUrls = [];
+        existing.imageUrls.push(u);
       }
     }
   }
@@ -110,13 +105,9 @@ function looksAuthWall(url: string, bodyText: string): boolean {
 /**
  * Scroll group feed and collect post permalinks until policy stop rules fire.
  */
-export async function scrapeGroupFeed(
-  input: ScrapeFeedInput,
-): Promise<ScrapeFeedResult> {
+export async function scrapeGroupFeed(input: ScrapeFeedInput): Promise<ScrapeFeedResult> {
   const policy = scrapeRunPolicy;
-  const cap = input.coldStart
-    ? policy.coldStartMaxPosts
-    : policy.maxPostsPerRun;
+  const cap = input.coldStart ? policy.coldStartMaxPosts : policy.maxPostsPerRun;
   const deadline = Date.now() + policy.maxDurationMs;
 
   const browser = await chromium.launch({ headless: true });
@@ -131,7 +122,10 @@ export async function scrapeGroupFeed(
       timeout: 60_000,
     });
 
-    const bodyText = await page.locator("body").innerText().catch(() => "");
+    const bodyText = await page
+      .locator("body")
+      .innerText()
+      .catch(() => "");
     if (looksAuthWall(page.url(), bodyText)) {
       return { posts: [], stopReason: "auth" };
     }
@@ -152,11 +146,7 @@ export async function scrapeGroupFeed(
       for (const post of batch) {
         if (seen.has(post.postId)) continue;
 
-        if (
-          !input.coldStart &&
-          input.lastPostId &&
-          post.postId === input.lastPostId
-        ) {
+        if (!input.coldStart && input.lastPostId && post.postId === input.lastPostId) {
           stopReason = "hit_watermark";
           return { posts: ordered, stopReason };
         }

@@ -114,9 +114,9 @@ Depends on W3.
 | Task | Notes | Status |
 |------|-------|--------|
 | W5.1 Choose hook runner | **Husky 9** via root `prepare` + `.husky/pre-commit` | **done** (bootstrap) |
-| W5.2 Fast checks | format, typecheck on staged TS | later |
+| W5.2 Fast checks | Biome lint+format on staged `.ts`/`.tsx` + package `tsc --noEmit` (`scripts/precommit-fast.sh`) | **done** |
 | W5.3 Drift checks | `infra/` Homie-named invariants (reuse `looper-homie-infra/scripts/check-*.py`); generated env/config sync if added | later |
-| W5.4 Skip rules | docs-only / markdown-only paths don’t run heavy gates | later |
+| W5.4 Skip rules | no staged `.ts`/`.tsx` → hook exits 0 (docs/config-only) | **done** |
 
 **Done when:** a bad rename (`clinic-*` residue) or broken SPEC heading fails locally before push.
 
