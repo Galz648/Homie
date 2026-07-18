@@ -57,8 +57,7 @@ function parseBody(raw: unknown): ListingIngestBody | { error: string } {
   }
   if ("contactPhone" in obj) {
     if (obj.contactPhone === null) listing.contactPhone = null;
-    else if (typeof obj.contactPhone === "string")
-      listing.contactPhone = obj.contactPhone;
+    else if (typeof obj.contactPhone === "string") listing.contactPhone = obj.contactPhone;
     else return { error: "contactPhone must be a string or null" };
   }
   if ("address" in obj) {
@@ -68,9 +67,17 @@ function parseBody(raw: unknown): ListingIngestBody | { error: string } {
   }
   if ("conditionals" in obj) {
     if (obj.conditionals === null) listing.conditionals = null;
-    else if (typeof obj.conditionals === "string")
-      listing.conditionals = obj.conditionals;
+    else if (typeof obj.conditionals === "string") listing.conditionals = obj.conditionals;
     else return { error: "conditionals must be a string or null" };
+  }
+  if ("images" in obj) {
+    // Test-only convenience for createMemoryStore — createDrizzleStore always
+    // ignores this and copies images from raw_facebook_posts by postId.
+    if (Array.isArray(obj.images) && obj.images.every((entry) => typeof entry === "string")) {
+      listing.images = obj.images as string[];
+    } else {
+      return { error: "images must be an array of strings" };
+    }
   }
 
   return listing;
@@ -104,8 +111,7 @@ async function reportSlackNotifyFailure(args: {
       ],
     });
   } catch (alertErr) {
-    const alertMessage =
-      alertErr instanceof Error ? alertErr.message : String(alertErr);
+    const alertMessage = alertErr instanceof Error ? alertErr.message : String(alertErr);
     logIngestError({
       level: "error",
       service: "homie-ingest",

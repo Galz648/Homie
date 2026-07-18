@@ -113,9 +113,7 @@ describe("homie-ingest contract", () => {
     expect(slackCalls.length).toBe(1);
     expect(slackCalls[0]?.url).toBe("https://slack.com/api/chat.postMessage");
     expect((slackCalls[0]?.body as { channel: string }).channel).toBe("C_TEST");
-    expect(
-      String((slackCalls[0]?.body as { text: string }).text),
-    ).toContain("fb-post-42");
+    expect(String((slackCalls[0]?.body as { text: string }).text)).toContain("fb-post-42");
   });
 
   test("idempotent upsert by postId updates and notifies again", async () => {
@@ -133,6 +131,72 @@ describe("homie-ingest contract", () => {
     expect(json.created).toBe(false);
     expect(store.rows.get("fb-post-42")?.price).toBe(8000);
     expect(slackCalls.length).toBe(1);
+  });
+
+  test("upsert without images defaults to empty array (memory store)", async () => {
+    slackCalls.length = 0;
+    const resp = await fetch(`${baseUrl}/ingest/listings`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${BEARER}`,
+      },
+      body: JSON.stringify({ postId: "fb-post-no-images" }),
+    });
+    expect(resp.status).toBe(200);
+    expect(store.rows.get("fb-post-no-images")?.images).toEqual([]);
+  });
+
+  test("images provided on body are persisted by memory store (test-only seed)", async () => {
+    slackCalls.length = 0;
+    const images = ["https://example.com/a.jpg", "https://example.com/b.jpg"];
+    const resp = await fetch(`${baseUrl}/ingest/listings`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${BEARER}`,
+      },
+      body: JSON.stringify({ postId: "fb-post-images", images }),
+    });
+    expect(resp.status).toBe(200);
+    expect(store.rows.get("fb-post-images")?.images).toEqual(images);
+  });
+
+  test("images preserved across an update that omits images", async () => {
+    slackCalls.length = 0;
+    const images = ["https://example.com/keep.jpg"];
+    await fetch(`${baseUrl}/ingest/listings`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${BEARER}`,
+      },
+      body: JSON.stringify({ postId: "fb-post-images-2", images }),
+    });
+
+    const resp = await fetch(`${baseUrl}/ingest/listings`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${BEARER}`,
+      },
+      body: JSON.stringify({ postId: "fb-post-images-2", price: 9000 }),
+    });
+    expect(resp.status).toBe(200);
+    expect(store.rows.get("fb-post-images-2")?.images).toEqual(images);
+    expect(store.rows.get("fb-post-images-2")?.price).toBe(9000);
+  });
+
+  test("invalid images type is rejected with 400", async () => {
+    const resp = await fetch(`${baseUrl}/ingest/listings`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${BEARER}`,
+      },
+      body: JSON.stringify({ postId: "fb-post-bad-images", images: "not-an-array" }),
+    });
+    expect(resp.status).toBe(400);
   });
 });
 
