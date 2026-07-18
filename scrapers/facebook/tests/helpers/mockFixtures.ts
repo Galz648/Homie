@@ -14,6 +14,8 @@ export function fakeSettings(over: Partial<Settings> = {}): Settings {
     slackBotToken: undefined,
     slackRuntimeErrorsChannelId: undefined,
     lane: "local",
+    cfAgentWebhookUrl: undefined,
+    cfAgentWebhookSecret: undefined,
     ...over,
   };
 }
