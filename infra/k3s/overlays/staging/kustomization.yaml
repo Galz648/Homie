@@ -21,11 +21,11 @@ patches:
   - path: patch-homie-ingest-image.yaml
   - path: patch-homie-ingest-env.yaml
   - path: patch-homie-ingest-nodeport.yaml
-# Zot — in-cluster build pins worker to staging-989c1c4 (Argo OutOfSync until Sync).
+# Zot — in-cluster build pins worker to staging-196eb98.
 images:
   - name: fb-scrape-worker
     newName: zot.local:5000/homie/fb-scrape-worker
-    newTag: staging-989c1c4
+    newTag: staging-196eb98
   - name: homie-ingest
     newName: homie-ingest
     newTag: staging-wire
