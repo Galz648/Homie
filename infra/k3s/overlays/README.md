@@ -30,3 +30,26 @@ envFrom:
   - secretRef:
       name: homie-spaces-images
 ```
+
+## Database (Postgres)
+
+| Lane | Source of truth | Secret |
+|------|-----------------|--------|
+| **production** | Supabase (`DATABASE_URL` / `DIRECT_URL` from repo `.env` → `~/.config/homie/database.production.env`) | `homie-database` |
+| **staging** | Non-Supabase (in-cluster when provisioned) — `database.staging.env` | `homie-database` |
+| **local** | k3d scrape-postgres `127.0.0.1:54329` | n/a |
+
+```bash
+# Sync from repo .env once, then apply (production refuses non-Supabase hosts):
+KUBECONFIG=~/.kube/homie-k3s.yaml ./scripts/apply-homie-database-secret.sh production
+```
+
+Worker / API:
+
+```yaml
+envFrom:
+  - secretRef:
+      name: homie-database
+  - secretRef:
+      name: homie-spaces-images
+```
