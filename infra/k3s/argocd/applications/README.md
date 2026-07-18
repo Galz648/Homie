@@ -12,6 +12,7 @@ kubectl apply -f .
 | `homie-workloads.yaml` | Kustomize `infra/k3s/overlays/staging` → ns `homie-staging` (`targetRevision: staging`) |
 | `homie-workloads-production.yaml` | Kustomize `infra/k3s/overlays/production` → ns `homie-production` (`targetRevision: main`; **do not apply** until capacity) |
 | `homie-monitoring.yaml` | Helm `infra/k3s/monitoring` (`values.yaml` + `values-slack.yaml`) → ns `monitoring` |
+| `homie-argo-workflows-templates.yaml` | Directory `infra/k3s/platform/argo-workflows/templates` → ns `argo` (**optional** — apply when ready to stop manual `kubectl apply -f templates/`) |
 | `repo-homie.yaml` | Git repo registration (public) |
 
 Defaults: staging app → `targetRevision: **staging**`; production app → `**main**`; **manual** sync.

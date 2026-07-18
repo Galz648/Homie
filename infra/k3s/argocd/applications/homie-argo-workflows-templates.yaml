@@ -1,0 +1,25 @@
+# GitOps for Argo Workflows templates/examples (optional apply).
+# Do not apply until operator is ready to stop kubectl apply -f templates/.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: homie-argo-workflows-templates
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Galz648/Homie.git
+    targetRevision: staging
+    path: infra/k3s/platform/argo-workflows/templates
+    directory:
+      recurse: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argo
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=false
+  # Manual sync — operator applies this Application when ready.
+  ignoreDifferences: []
