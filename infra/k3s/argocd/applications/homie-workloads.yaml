@@ -15,8 +15,11 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: homie-staging
-  # Manual sync — applies on any overlay change (not image-tags-only).
+  # Auto-sync staging tip → cluster (selfHeal undoes kubectl drift).
   syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
     syncOptions:
       - CreateNamespace=true
   ignoreDifferences: []
