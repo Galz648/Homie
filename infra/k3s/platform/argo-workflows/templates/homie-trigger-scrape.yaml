@@ -1,0 +1,60 @@
+# Start one scrapeFacebookGroup run against in-cluster Temporal.
+# Uses kubectl exec into scrape-temporal (CLI on auto-setup image) —
+# does not pull a throwaway Temporal admin image.
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: homie-trigger-scrape
+  namespace: argo
+  labels:
+    app.kubernetes.io/part-of: homie
+    homie.io/smoke: trigger-scrape
+spec:
+  entrypoint: trigger
+  serviceAccountName: argo-workflow
+  activeDeadlineSeconds: 300
+  arguments:
+    parameters:
+      - name: group-id
+        value: "35819517694"
+      - name: group-url
+        value: "https://www.facebook.com/groups/35819517694"
+      - name: target-namespace
+        value: homie-staging
+  templates:
+    - name: trigger
+      inputs:
+        parameters:
+          - name: group-id
+          - name: group-url
+          - name: target-namespace
+      script:
+        image: alpine/k8s:1.31.0
+        command: [bash]
+        source: |
+          set -euo pipefail
+          NS="{{inputs.parameters.target-namespace}}"
+          GID="{{inputs.parameters.group-id}}"
+          GURL="{{inputs.parameters.group-url}}"
+          TS=$(date +%s)
+          WF="fb-scrape-manual-${GID}-${TS}"
+          POD=$(kubectl -n "$NS" get pods -l app.kubernetes.io/name=scrape-temporal \
+            -o jsonpath='{.items[0].metadata.name}')
+          if [[ -z "$POD" ]]; then
+            echo "ERROR: no scrape-temporal pod in $NS" >&2
+            exit 1
+          fi
+          echo "exec temporal workflow start on $POD → $WF"
+          kubectl -n "$NS" exec "$POD" -- temporal workflow start \
+            --address scrape-temporal:7233 \
+            --task-queue homie-fb-scrape \
+            --type scrapeFacebookGroup \
+            --workflow-id "$WF" \
+            --input "{\"groupId\":\"${GID}\",\"groupUrl\":\"${GURL}\"}"
+          echo "ok: started $WF"
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            memory: 256Mi

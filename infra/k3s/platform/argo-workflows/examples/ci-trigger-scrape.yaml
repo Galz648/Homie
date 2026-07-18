@@ -1,0 +1,20 @@
+# Ad-hoc: kubectl -n argo create -f examples/ci-trigger-scrape.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: homie-trigger-scrape-
+  namespace: argo
+  labels:
+    homie.io/smoke: trigger-scrape
+    homie.io/trigger: manual
+spec:
+  workflowTemplateRef:
+    name: homie-trigger-scrape
+  arguments:
+    parameters:
+      - name: group-id
+        value: "35819517694"
+      - name: group-url
+        value: "https://www.facebook.com/groups/35819517694"
+      - name: target-namespace
+        value: homie-staging
