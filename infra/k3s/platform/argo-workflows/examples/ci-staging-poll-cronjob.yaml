@@ -1,7 +1,10 @@
 # Staging tip poller — clinica pattern (alpine/k8s + git ls-remote).
 # Public Homie repo: anonymous HTTPS (no github-ci-ssh / PAT required).
-# On tip change → submit homie-ci-staging only (no image-build until Zot exists).
+# On tip change → Slack #homie-alerts-ci-poll + submit homie-ci-staging
+# (no image-build until Zot pin loop is fully auto).
 # Skip chore(k3s): pin* commits so a future pin loop cannot re-trigger CI.
+#
+# Slack: Secret argo/homie-ci-poll-slack (scripts/apply-homie-ci-poll-slack-secret.sh).
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -25,10 +28,30 @@ spec:
           containers:
             - name: poll
               image: alpine/k8s:1.31.0
+              envFrom:
+                - secretRef:
+                    name: homie-ci-poll-slack
+                    optional: true
               command: [sh, -lc]
               args:
                 - |
                   set -euo pipefail
+                  notify() {
+                    ACTION="$1"
+                    if [[ -z "${SLACK_BOT_TOKEN:-}" || -z "${SLACK_CI_POLL_CHANNEL_ID:-}" ]]; then
+                      echo "slack notify skipped (homie-ci-poll-slack unset)"
+                      return 0
+                    fi
+                    SHORT=$(printf '%s' "$SHA" | cut -c1-7)
+                    TEXT=$(printf 'staging tip changed\n`%s` — %s\naction: %s' "$SHORT" "$MSG" "$ACTION")
+                    RESP=$(curl -sS https://slack.com/api/chat.postMessage \
+                      -d "token=${SLACK_BOT_TOKEN}" \
+                      -d "channel=${SLACK_CI_POLL_CHANNEL_ID}" \
+                      --data-urlencode "text=${TEXT}" || true)
+                    echo "$RESP" | grep -q '"ok":true' \
+                      && echo "slack notify ok" \
+                      || echo "warn: slack notify failed: $RESP"
+                  }
                   SHA=$(git ls-remote https://github.com/Galz648/Homie.git refs/heads/staging | awk '{print $1}')
                   if [[ -z "$SHA" ]]; then
                     echo "failed to resolve staging tip"
@@ -46,6 +69,7 @@ spec:
                   MSG=$(git -C /tmp/repo log -1 --pretty=%s)
                   echo "tip message=$MSG"
                   if [[ "$MSG" == chore\(k3s\):\ pin* ]]; then
+                    notify "skip pin-only commit"
                     kubectl -n argo create configmap homie-ci-last-sha --from-literal=sha="$SHA" -o yaml --dry-run=client \
                       | kubectl apply -f -
                     echo "skip pin-only commit"
@@ -64,6 +88,7 @@ spec:
                     workflowTemplateRef:
                       name: homie-ci-staging
                   EOF
+                  notify "submitted homie-ci-staging"
                   kubectl -n argo create configmap homie-ci-last-sha --from-literal=sha="$SHA" -o yaml --dry-run=client \
                     | kubectl apply -f -
                   echo submitted for $SHA

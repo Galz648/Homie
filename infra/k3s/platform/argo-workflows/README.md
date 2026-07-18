@@ -35,7 +35,7 @@ not the reverse. Thin GHA remains secondary only.
 
 | Trigger | Artifact |
 |---------|----------|
-| Staging tip poll (1m) | `examples/ci-staging-poll-{rbac,cronjob}.yaml` (`alpine/k8s` + `git ls-remote`) |
+| Staging tip poll (1m) | `examples/ci-staging-poll-{rbac,cronjob}.yaml` (`alpine/k8s` + `git ls-remote`; Slack `#homie-alerts-ci-poll` on tip change) |
 | Pin-only tip | Skipped (`chore(k3s): pin*`) — avoids CI loops on pin commits |
 | Manual / smoke | `kubectl -n argo create` from examples |
 | Live scrape | `examples/ci-trigger-scrape.yaml` → `homie-trigger-scrape` |

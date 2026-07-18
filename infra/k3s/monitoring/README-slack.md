@@ -5,6 +5,7 @@
 | Slack Grafana (default) | `SLACK_CHANNEL_ID_GRAFANA` | `#homie-alerts-grafana` |
 | Argo CD / GitOps | `SLACK_ARGOCD_CHANNEL_ID` | `#homie-alerts-argocd` |
 | Argo Workflows / CI | `SLACK_ARGO_WORKFLOWS_CHANNEL_ID` | `#homie-alerts-argo-workflows` |
+| Staging tip poller | `SLACK_CI_POLL_CHANNEL_ID` | `#homie-alerts-ci-poll` |
 | Runtime errors (production) | `SLACK_RUNTIME_ERRORS_CHANNEL_ID` | `#homie-runtime-errors` |
 | Runtime errors (staging) | `SLACK_STAGING_RUNTIME_ERRORS_CHANNEL_ID` | `#homie-runtime-errors-staging` |
 | New postings (production) | `SLACK_NEW_POSTINGS_CHANNEL_ID` | `#homie-new-postings` |
@@ -35,5 +36,14 @@ cd infra/k3s/argocd && ./install.sh --wait --timeout 10m
 ```
 
 Argo Workflows / CI → `#homie-alerts-argo-workflows` (`SLACK_ARGO_WORKFLOWS_CHANNEL_ID`; wire when CI onExit is ready).
+
+Staging tip poller (`homie-ci-staging-poll`) → `#homie-alerts-ci-poll` on tip change
+(submit CI or skip pin). Secret out-of-band:
+
+```bash
+KUBECONFIG=~/.kube/homie-k3s-admin.yaml ./scripts/apply-homie-ci-poll-slack-secret.sh
+KUBECONFIG=~/.kube/homie-k3s-admin.yaml kubectl -n argo apply -f \
+  infra/k3s/platform/argo-workflows/examples/ci-staging-poll-cronjob.yaml
+```
 
 See [`../argocd/README-slack.md`](../argocd/README-slack.md).
