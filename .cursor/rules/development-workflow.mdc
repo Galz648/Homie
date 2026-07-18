@@ -1,0 +1,51 @@
+---
+description: Commit, test, and pre-commit workflow (adapted from clinic development-experience)
+alwaysApply: true
+---
+
+# Development workflow
+
+Homie follows the same commit/test discipline as clinic-reminder-system.
+
+## Commits
+
+- One concern per commit; message explains **why** in one sentence.
+- Stage only paths for this commit — **never** `git add -A`.
+- **Never** whole-repo `lint --fix` “cleanup”; lint staged files only when hooks exist.
+- **Never** `git commit --no-verify` unless the commit is markdown/config-only and the hook cannot break (see `macos-git-slowness.mdc`). Failed hook → fix → **new** commit.
+
+## Test-first loop
+
+1. Unit/contract tests next to changed code (`**/tests/`, `scrapers/facebook/tests/`).
+2. E2E when behavior crosses DB, Temporal, HTTP, or live Facebook.
+3. Iterate: targeted `bun test` / `vitest` / `bun run check:*`.
+
+## Scrape e2e gate (W7)
+
+| Kind | Command | When |
+|------|---------|------|
+| **Mocks** | `cd scrapers/facebook && bun run check:e2e-mocks` | Automated CI / PR gate |
+| **Live** | `cd scrapers/facebook && bun run preprod:e2e-online` | **Manual only** — before prod scrape promote |
+
+Live Facebook e2e is **not** a blocking staging CI step. See `docs/workstreams.md` W7.
+
+## Local gate (before push)
+
+```bash
+./scripts/k3s-local-up.sh
+kubectl apply -k infra/k3s/overlays/local
+cd scrapers/facebook && bun run check:e2e-mocks
+# optional pre-prod: bun run preprod:e2e-online
+```
+
+## Refactor
+
+Only after feature-green. Refactor commits change structure only — no new behavior without new tests first.
+
+## Failure response
+
+| Symptom | Action |
+|---------|--------|
+| k3s / Postgres / Temporal down | `./scripts/k3s-local-up.sh` + local overlay |
+| Staged too much | `git restore --staged <paths>` |
+| Live e2e auth fail | renew session (`import-chrome-session` / `renew`), then retry |

@@ -1,0 +1,34 @@
+---
+description: "When git hangs or env vars get corrupted, delegate the task rather than debugging in a multi-turn spiral."
+alwaysApply: true
+---
+
+# Delegate struggling tasks
+
+## The rule
+
+When you hit **3+ failed attempts** at the same goal without resolution — Docker connectivity issues, env var masking problems, password detective work, intermittent test timeouts, API format guessing — **STOP and delegate**.
+
+A single `delegate_task` / Task subagent call with the full context (what you tried, what failed, the goal) gets a fresh terminal session and toolset. It often solves problems you're overthinking.
+
+## Examples of when to delegate
+
+| Situation | What to send in the context |
+|-----------|---------------------------|
+| Shell keeps mangling postgres password from `postgres` to `***` | Say: "the password is literally the word 'postgres'. Shell Show HN/PG env var prefix gets corrupted. Use Python subprocess or node -e to set env vars in-process." |
+| Git keeps hanging on `status`/`add`/`commit` | Say: "Cursor watchers hold the index lock. Kill them with pkill -f git, or use hash-object bypass." |
+| Slack / DO API response format keeps changing | Say: "dump the raw JSON first with json.dumps to see the real key names" |
+| Docker Desktop / k3d won't respond | Say: "check if Docker socket exists, kill Docker Desktop, restart it, wait for ping OK, then k3d" |
+
+## Warning signs you should have delegated
+
+- You've made 5+ tool calls on the same problem
+- You're constructing increasingly complex shell commands to work around masking
+- You're reading error messages about file formats and response structures rather than about your actual task
+- The user said "this is too slow" or "delegate tasks you're struggling with"
+
+## What NOT to delegate
+
+- Quick single-step lookups (file read, API check, env var inspection)
+- Tasks where the user needs to make a decision
+- Tasks that need deep reasoning about business logic

@@ -1,0 +1,13 @@
+---
+description: DEPRECATED — Cloudflare/Alchemy deploy retired; use Homie k3s
+alwaysApply: false
+---
+
+# Legacy cloud deploy — deprecated
+
+Cloudflare / Alchemy is **not** Homie's deploy target (retired on branch `infra`).
+
+Live path: DigitalOcean **k3s** — see `infra/README.md`, `infra/SPEC.md`,
+`infra/terraform/stacks/k3s/`, and `docs/workstreams.md` (W2).
+
+Do not resurrect Cloudflare Wrangler / Alchemy as the primary ship path.

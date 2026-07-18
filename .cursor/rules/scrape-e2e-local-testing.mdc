@@ -1,0 +1,41 @@
+---
+description: Scrape e2e safety — mocks vs live; prefer local k3s before cloud debug
+globs: scrapers/facebook/**,e2e/**
+alwaysApply: false
+---
+
+# Scrape / local e2e testing
+
+Prefer **local k3s e2e** over debugging scrape behavior only on the droplet.
+Prove behavior before promote.
+
+## Two e2e kinds (W7 — agreed)
+
+| Kind | Command | Gate |
+|------|---------|------|
+| **Mocks** | `bun run check:e2e-mocks` | Automated — CI / PR |
+| **Live** | `bun run preprod:e2e-online` | **Manual** — before prod scrape |
+
+Live hits real Facebook and needs `~/.config/homie/facebook_state.json`.
+Do **not** make live a blocking staging CI step.
+
+## Safety / secrets
+
+| Item | Rule |
+|------|------|
+| Facebook session | Out of band; never commit |
+| Slack in e2e | Mocks: no live Slack (formatter tests only). Live: avoid treating as `#homie-runtime-errors` by default |
+| PII / post bodies | Do not paste live scrape rows into git or chat |
+
+## Local substrate
+
+```bash
+./scripts/k3s-local-up.sh
+kubectl apply -k infra/k3s/overlays/local
+cd scrapers/facebook
+bun run check:postgres
+bun run check:temporal
+bun run check:e2e-mocks
+```
+
+Host ports: Postgres `127.0.0.1:54329`, Temporal `127.0.0.1:7233` — see `infra/README.md`.

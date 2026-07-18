@@ -1,0 +1,42 @@
+---
+description: "Env vars defined in IaC / config templates first. Never ad-hoc kubectl or Dashboard edits without updating source."
+globs: "infra/**,terraform/**,deploy/**,.env*"
+alwaysApply: true
+---
+
+# IaC-first environment configuration
+
+## Rule
+
+All environment variable changes MUST go through IaC / config templates
+FIRST, then apply via the live path. Never mutate a running service's
+env via one-off kubectl/API/Dashboard edits without updating the source file.
+
+## Live path (DigitalOcean k3s)
+
+1. Edit the source of truth:
+   - `infra/k3s/overlays/{local,staging,production}/` — lane ConfigMaps / secrets examples
+   - `infra/terraform/stacks/k3s/` — droplet / volumes
+   - Homie secret groups stay out of band (`~/.config/homie/`, gitignored overlay secrets)
+2. Apply workloads: `kubectl apply -k infra/k3s/overlays/<lane>` (after image build/import as needed).
+3. Commit the IaC change before applying (or in the same PR).
+
+Operator map: `infra/README.md`, `infra/SPEC.md`, `docs/workstreams.md` (W2).
+
+## Retired / do not use
+
+- Cloudflare / Alchemy as Homie deploy home (retired on `infra`)
+- Ad-hoc Render Dashboard env edits (clinic legacy; not Homie's path)
+- Committing filled secrets, kubeconfigs, or `secrets.auto.tfvars`
+
+## Secrets
+
+- **k3s lanes:** gitignored overlay secrets (from `*.example.yaml`); never commit filled secrets.
+- **Local:** `~/.config/homie/slack.env`, `tailscale.env`, `facebook_state.json` — never commit.
+- **TF:** gitignored `secrets.auto.tfvars` / `terraform.tfvars`.
+
+## Env var masking workaround
+
+The shell masks `postgres` to `***` in terminal output. To read or set secrets
+programmatically, use Python/Node in-process (not shell-exported
+`DATABASE_URL=postgresql://postgres:...`).

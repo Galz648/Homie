@@ -1,0 +1,47 @@
+---
+description: Validate external/legacy data strictly; log anomalies; fail closed per request without crashing the process
+alwaysApply: true
+---
+
+# External data validation
+
+When integrating external systems (Facebook scrape HTML/GraphQL, listing APIs, third-party feeds):
+
+## No silent placeholders
+
+Do **not** invent defaults like `'Unknown'`, empty strings, or `null` for fields the source is expected to validate. If a required field is missing, that is a data problem — surface it.
+
+## Two tiers
+
+| Tier | Meaning | On bad/missing data |
+|------|---------|---------------------|
+| **Required identity** | Source guarantees these for a valid row (stable post URL / id, group id, …) | Log **error**, reject the row for this request. Catch at the service boundary — **do not crash the worker/process**. |
+| **Expected but soft** | Usually present; empty/null is rare and suspicious (title, price, images, …) | Log **error**, continue with best-effort storage if the row is otherwise valid. Never assume `null` is normal in business logic — treat it as an anomaly at the boundary. |
+
+## Request-scoped failure, not process failure
+
+- Invalid external rows → log + skip that scrape/upsert attempt.
+- Unexpected integration errors outside validation → still throw after logging when appropriate.
+- User-facing / agent paths must degrade gracefully — not an unhandled exception.
+
+## Map only fields we use
+
+External payloads are noisy. **Do not map or store properties that no current feature reads.**
+
+| Do | Don't |
+|----|-------|
+| Type/map only fields the domain DTO or persist layer needs | Copy every scrape field “for completeness” |
+| Drop unused fields when refactoring mappers | Keep billing/UI junk “just in case” |
+| Document required keys when adding a source | Expand types without a consumer |
+
+## Live probes (shape only)
+
+Use live Facebook / API calls (local secrets) to confirm **shapes and semantics** — not to copy rows into the repo or chat.
+
+- Probe output may contain PII / session material → **do not commit**, **do not paste into docs/fixtures/tests**
+- Document structural learnings with sanitized examples
+- Session files (`~/.config/homie/facebook_state.json`) stay gitignored
+
+## Slack alerts
+
+Runtime failures use `formatRuntimeErrorMessage` → `#homie-runtime-errors`. No secrets/cookies in alert Evidence.

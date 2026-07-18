@@ -1,0 +1,55 @@
+---
+description: Temporal worker runtime — Node (not Bun); run temporal e2e in isolation
+globs: scrapers/facebook/**,**/worker.ts,**/workflows.ts
+alwaysApply: false
+---
+
+# Temporal worker runtime
+
+## Runtime — Node today (Bun is an open question)
+
+`@temporalio/worker` (native core-bridge + worker_threads workflow sandbox) runs
+under **Node**, via `tsx` for TS:
+
+```bash
+cd scrapers/facebook
+bun run worker          # package script → tsx src/worker.ts (Node via tsx)
+```
+
+Never run the Temporal worker **inside** the `bun test` / vitest process itself —
+e2e/AC runners spawn a separate worker subprocess (see `scripts/checkE2eOnline.ts`).
+
+**Bun as the Temporal worker runtime is UNVERIFIED** in clinic history and Homie.
+Do **not** switch the worker to pure Bun until proven with full e2e green repeatedly.
+
+## Node version — any supported (20 / 22 / 24)
+
+Prefer an **Active/Maintenance LTS** (20 or 22) for production. Node version is
+**not** a typical cause of worker-startup hangs.
+
+## The real gotcha — COLD native-core load can take minutes
+
+Measured elsewhere: the **first** `import('@temporalio/worker')` after a reboot /
+fresh checkout can take **minutes**; warm imports are hundreds of ms. Cold first
+runs look like hangs.
+
+**Do — warm the SDK, then run e2e alone:**
+
+```bash
+./scripts/k3s-local-up.sh
+kubectl apply -k infra/k3s/overlays/local
+cd scrapers/facebook
+./node_modules/.bin/tsx -e "import('@temporalio/worker').then(()=>console.log('warm'))"
+bun run check:e2e-mocks
+# live (manual): bun run preprod:e2e-online
+```
+
+**Don't:** run Temporal e2e concurrently with other Temporal workers, big builds,
+or several heavy subagents on a cold cache.
+
+## Diagnosing a worker that never becomes ready
+
+1. **Cold `@temporalio/worker`?** Warm import once, re-run.
+2. Temporal reachable? `nc -z 127.0.0.1 7233` (Homie local port map).
+3. Node/tsx for the worker — not Bun-as-runtime.
+4. Cold CI: warm-up or raise worker-ready timeout.
