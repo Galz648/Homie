@@ -32,6 +32,12 @@ spec:
             - secretRef:
                 name: homie-slack
                 optional: true
+            # Out-of-band: kubectl create secret generic homie-cf-agent-webhook \
+            #   --from-literal=HOMIE_CF_AGENT_WEBHOOK_SECRET=... -n <lane>
+            # Optional — when absent, notifyListingAgent no-ops if URL also empty.
+            - secretRef:
+                name: homie-cf-agent-webhook
+                optional: true
           volumeMounts:
             - name: facebook-state
               mountPath: /var/homie
