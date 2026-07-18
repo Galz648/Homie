@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: homie-ingest-env
+data:
+  HOMIE_LANE: staging
+  # Prefer staging new-postings channel when set in Secret/env; blank = skip success Slack.
+  HOMIE_INGEST_SLACK_CHANNEL_ID: ""
