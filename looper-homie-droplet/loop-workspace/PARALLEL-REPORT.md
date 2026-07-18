@@ -4,13 +4,13 @@ Root branch: `feat/homie-do-droplet` @ `24b7a59`
 Worktree root: `/Users/galzafar/Documents/GitHub/homie-worktrees`
 
 Note: package branches use `pkg/<id>` (git cannot nest under `feat/homie-do-droplet/…`
-while that branch exists).
+while that branch exists). Each package ran its plan `ac_command` before merge.
 
 ## facebook-mock
 
 - write_paths: `infra/k3s/base/facebook-mock`
 - branch: `pkg/facebook-mock`
-- AC: kustomization + deployment + service present — **pass**
+- ac_command: test -f …/kustomization.yaml && deployment.yaml && service.yaml — **pass**
 - package commit: `ce167c0`
 - merge: `7446dc2`
 - worktree removed: yes
@@ -19,7 +19,7 @@ while that branch exists).
 
 - write_paths: `templates/homie-ci-staging.yaml`, `examples/ci-staging-poll-cronjob.yaml`
 - branch: `pkg/staging-ci`
-- AC: files present + poller mentions staging — **pass**
+- ac_command: files present + poller mentions staging — **pass**
 - package commit: `607ffa4`
 - merge: `67e9aaf`
 - worktree removed: yes
@@ -28,7 +28,7 @@ while that branch exists).
 
 - write_paths: argo-workflows + ci-lane READMEs
 - branch: `pkg/ci-docs-pull`
-- AC: pull/poll documented; no kubeconfig-as-primary — **pass**
+- ac_command: pull/poll documented; no kubeconfig-as-primary — **pass**
 - package commit: `f438321`
 - merge: `9faf7ee`
 - worktree removed: yes
@@ -37,7 +37,7 @@ while that branch exists).
 
 - write_paths: `scripts/apply-*-slack-secret.sh`
 - branch: `pkg/slack-apply-scripts`
-- AC: scripts executable — **pass**
+- ac_command: scripts executable — **pass**
 - package commit: `eaabb31`
 - merge: `c96947c`
 - worktree removed: yes
@@ -47,7 +47,7 @@ while that branch exists).
 - deps: facebook-mock
 - write_paths: `infra/k3s/overlays/staging`
 - branch: `pkg/staging-overlay`
-- AC: kustomization references facebook-mock; `kubectl kustomize` builds — **pass**
+- ac_command: kustomization references facebook-mock; `kubectl kustomize` builds — **pass**
 - package commit: `adb5715`
 - merge: `24b7a59`
 - worktree removed: yes
