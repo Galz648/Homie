@@ -31,7 +31,7 @@ repo kubeconfig secret as the main CI submit path.
 
 | Trigger | Artifact |
 |---------|----------|
-| Staging tip poll (1m) | `examples/ci-staging-poll-cronjob.yaml` (suspend until `argo/github-ci-read`) |
+| Staging tip poll (1m) | `examples/ci-staging-poll-{rbac,cronjob}.yaml` (`alpine/k8s` + `git ls-remote`, anon HTTPS) |
 | Manual / smoke | `kubectl -n argo create` from `homie-ci-staging` template |
 
 ## Install
@@ -60,10 +60,8 @@ kubectl -n argo port-forward svc/homie-argo-workflows-server 2746:2746
 
 ```bash
 kubectl -n argo apply -f templates/homie-ci-staging.yaml
+kubectl -n argo apply -f examples/ci-staging-poll-rbac.yaml
 kubectl -n argo apply -f examples/ci-staging-poll-cronjob.yaml
-# After PAT secret:
-# kubectl -n argo create secret generic github-ci-read --from-literal=token=ghp_…
-# kubectl -n argo patch cronjob homie-ci-staging-poll -p '{"spec":{"suspend":false}}'
 ```
 
 ## Smoke

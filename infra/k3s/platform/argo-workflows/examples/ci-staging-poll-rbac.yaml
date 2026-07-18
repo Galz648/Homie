@@ -1,0 +1,46 @@
+# RBAC for homie-ci-staging-poll CronJob only (not the workflow executor SA).
+# Mirrors clinic deploy/k3s/platform/argo-workflows/examples/ci-staging-poll-rbac.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: homie-ci-staging-poll
+  namespace: argo
+  labels:
+    app.kubernetes.io/part-of: homie
+    homie.io/ci: pull
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: homie-ci-staging-poll
+  namespace: argo
+  labels:
+    app.kubernetes.io/part-of: homie
+    homie.io/ci: pull
+rules:
+  - apiGroups: ["argoproj.io"]
+    resources: [workflows]
+    verbs: [create, get, list, watch]
+  - apiGroups: ["argoproj.io"]
+    resources: [workflowtemplates]
+    verbs: [get, list]
+  - apiGroups: [""]
+    resources: [configmaps]
+    verbs: [get, list, create, update, patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: homie-ci-staging-poll
+  namespace: argo
+  labels:
+    app.kubernetes.io/part-of: homie
+    homie.io/ci: pull
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: homie-ci-staging-poll
+subjects:
+  - kind: ServiceAccount
+    name: homie-ci-staging-poll
+    namespace: argo
