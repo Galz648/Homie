@@ -2,9 +2,11 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
   createIngestHandler,
   createMemoryStore,
+  createNoopRuntimeErrorAlerter,
   createSlackNotifier,
   startServer,
 } from "../src/server.js";
+import type { RuntimeErrorAlerter } from "../src/types.js";
 
 const BEARER = "test-ingest-token";
 
@@ -36,6 +38,8 @@ describe("homie-ingest contract", () => {
       bearerToken: BEARER,
       store,
       slack,
+      runtimeErrors: createNoopRuntimeErrorAlerter(),
+      env: "test",
       port: 0,
       hostname: "127.0.0.1",
     });
@@ -132,12 +136,83 @@ describe("homie-ingest contract", () => {
   });
 });
 
+describe("Slack notify failure after upsert", () => {
+  test("returns 200, keeps row, logs + runtime-errors alert", async () => {
+    const store = createMemoryStore();
+    const alerts: Array<{
+      component: string;
+      code: string;
+      summary: string;
+      evidence?: string[];
+    }> = [];
+    const runtimeErrors: RuntimeErrorAlerter = {
+      async alert(input) {
+        alerts.push(input);
+      },
+    };
+    const logged: string[] = [];
+    const origError = console.error;
+    console.error = (...args: unknown[]) => {
+      logged.push(args.map(String).join(" "));
+    };
+
+    try {
+      const handler = createIngestHandler({
+        bearerToken: BEARER,
+        store,
+        slack: {
+          async notifyListingUpsert() {
+            throw new Error("Slack chat.postMessage failed: channel_not_found");
+          },
+        },
+        runtimeErrors,
+        env: "staging",
+      });
+
+      const resp = await handler(
+        new Request("http://local/ingest/listings", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${BEARER}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ postId: "fb-slack-fail", price: 1000 }),
+        }),
+      );
+
+      expect(resp.status).toBe(200);
+      const json = (await resp.json()) as { ok: boolean; postId: string };
+      expect(json.ok).toBe(true);
+      expect(json.postId).toBe("fb-slack-fail");
+      expect(store.rows.get("fb-slack-fail")?.price).toBe(1000);
+
+      expect(alerts.length).toBe(1);
+      expect(alerts[0]?.component).toBe("ingest.slack");
+      expect(alerts[0]?.code).toBe("dependency_failed");
+
+      const structured = logged
+        .map((line) => {
+          try {
+            return JSON.parse(line) as { component?: string; code?: string };
+          } catch {
+            return null;
+          }
+        })
+        .find((e) => e?.component === "ingest.slack");
+      expect(structured?.code).toBe("dependency_failed");
+    } finally {
+      console.error = origError;
+    }
+  });
+});
+
 describe("createIngestHandler unit", () => {
   test("handler rejects missing postId with 400", async () => {
     const handler = createIngestHandler({
       bearerToken: BEARER,
       store: createMemoryStore(),
       slack: { async notifyListingUpsert() {} },
+      runtimeErrors: createNoopRuntimeErrorAlerter(),
     });
     const resp = await handler(
       new Request("http://local/ingest/listings", {

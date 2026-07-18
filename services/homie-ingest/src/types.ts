@@ -21,3 +21,13 @@ export type ListingStore = {
 export type SlackNotifier = {
   notifyListingUpsert(listing: ListingIngestBody & UpsertResult): Promise<void>;
 };
+
+/** Posts to #homie-runtime-errors (or lane staging channel) — never fails the request. */
+export type RuntimeErrorAlerter = {
+  alert(input: {
+    component: string;
+    code: "dependency_failed" | "unhandled";
+    summary: string;
+    evidence?: string[];
+  }): Promise<void>;
+};

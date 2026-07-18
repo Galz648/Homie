@@ -1,10 +1,20 @@
 import { authorizeBearer } from "./auth.js";
-import type { ListingIngestBody, ListingStore, SlackNotifier } from "./types.js";
+import { logIngestError } from "./log.js";
+import type {
+  ListingIngestBody,
+  ListingStore,
+  RuntimeErrorAlerter,
+  SlackNotifier,
+  UpsertResult,
+} from "./types.js";
 
 export type IngestAppDeps = {
   bearerToken: string;
   store: ListingStore;
   slack: SlackNotifier;
+  runtimeErrors: RuntimeErrorAlerter;
+  /** Lane label for structured logs / alerts (`HOMIE_LANE`). */
+  env?: string;
 };
 
 function jsonResponse(status: number, body: unknown): Response {
@@ -66,7 +76,51 @@ function parseBody(raw: unknown): ListingIngestBody | { error: string } {
   return listing;
 }
 
+async function reportSlackNotifyFailure(args: {
+  runtimeErrors: RuntimeErrorAlerter;
+  env: string;
+  postId: string;
+  err: unknown;
+}): Promise<void> {
+  const message = args.err instanceof Error ? args.err.message : String(args.err);
+  logIngestError({
+    level: "error",
+    service: "homie-ingest",
+    component: "ingest.slack",
+    code: "dependency_failed",
+    message,
+    postId: args.postId,
+    env: args.env,
+  });
+  try {
+    await args.runtimeErrors.alert({
+      component: "ingest.slack",
+      code: "dependency_failed",
+      summary: "Success-channel Slack notify failed after apartment_listings upsert",
+      evidence: [
+        `postId: \`${args.postId}\``,
+        `detail: ${message}`,
+        "DB write succeeded; client received 200",
+      ],
+    });
+  } catch (alertErr) {
+    const alertMessage =
+      alertErr instanceof Error ? alertErr.message : String(alertErr);
+    logIngestError({
+      level: "error",
+      service: "homie-ingest",
+      component: "ingest.runtime_errors_alert",
+      code: "dependency_failed",
+      message: alertMessage,
+      postId: args.postId,
+      env: args.env,
+    });
+  }
+}
+
 export function createIngestHandler(deps: IngestAppDeps) {
+  const lane = deps.env ?? "local";
+
   return async (req: Request): Promise<Response> => {
     const url = new URL(req.url);
 
@@ -91,19 +145,40 @@ export function createIngestHandler(deps: IngestAppDeps) {
         return jsonResponse(400, { error: parsed.error });
       }
 
+      let result: UpsertResult;
       try {
-        const result = await deps.store.upsert(parsed);
-        await deps.slack.notifyListingUpsert({ ...parsed, ...result });
-        return jsonResponse(200, {
-          ok: true,
-          postId: result.postId,
-          created: result.created,
-        });
+        result = await deps.store.upsert(parsed);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        console.error("[homie-ingest] upsert failed:", message);
+        logIngestError({
+          level: "error",
+          service: "homie-ingest",
+          component: "ingest.upsert",
+          code: "dependency_failed",
+          message,
+          postId: parsed.postId,
+          env: lane,
+        });
         return jsonResponse(500, { error: "upsert failed" });
       }
+
+      try {
+        await deps.slack.notifyListingUpsert({ ...parsed, ...result });
+      } catch (err) {
+        // Upsert already committed — never 500 the client for notify failure.
+        await reportSlackNotifyFailure({
+          runtimeErrors: deps.runtimeErrors,
+          env: lane,
+          postId: result.postId,
+          err,
+        });
+      }
+
+      return jsonResponse(200, {
+        ok: true,
+        postId: result.postId,
+        created: result.created,
+      });
     }
 
     return jsonResponse(404, { error: "not found" });

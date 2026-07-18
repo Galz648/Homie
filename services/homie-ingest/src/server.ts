@@ -5,6 +5,11 @@ import {
   createSlackNotifier,
   type SlackFetch,
 } from "./slack.js";
+import {
+  createNoopRuntimeErrorAlerter,
+  createRuntimeErrorAlerter,
+  resolveRuntimeErrorsChannelId,
+} from "./runtimeErrorAlert.js";
 
 export type StartServerOptions = IngestAppDeps & {
   port?: number;
@@ -17,6 +22,8 @@ export function resolveDepsFromEnv(env: NodeJS.ProcessEnv = process.env): Ingest
     throw new Error("HOMIE_INGEST_BEARER_TOKEN is required");
   }
 
+  const lane = (env.HOMIE_LANE ?? env.HOMIE_ENV ?? "local").toLowerCase();
+
   const databaseUrl = env.DATABASE_URL;
   const store =
     env.HOMIE_INGEST_STORE === "memory" || !databaseUrl
@@ -24,13 +31,23 @@ export function resolveDepsFromEnv(env: NodeJS.ProcessEnv = process.env): Ingest
       : createDrizzleStore(databaseUrl);
 
   const botToken = env.SLACK_BOT_TOKEN;
-  const channelId = env.HOMIE_INGEST_SLACK_CHANNEL_ID;
+  const successChannelId = env.HOMIE_INGEST_SLACK_CHANNEL_ID;
   const slack =
-    botToken && channelId
-      ? createSlackNotifier({ botToken, channelId })
+    botToken && successChannelId
+      ? createSlackNotifier({ botToken, channelId: successChannelId })
       : createNoopSlackNotifier();
 
-  return { bearerToken, store, slack };
+  const runtimeErrorsChannelId = resolveRuntimeErrorsChannelId(env);
+  const runtimeErrors =
+    botToken && runtimeErrorsChannelId
+      ? createRuntimeErrorAlerter({
+          botToken,
+          channelId: runtimeErrorsChannelId,
+          env: lane,
+        })
+      : createNoopRuntimeErrorAlerter();
+
+  return { bearerToken, store, slack, runtimeErrors, env: lane };
 }
 
 export async function startServer(options: StartServerOptions) {
@@ -40,6 +57,8 @@ export async function startServer(options: StartServerOptions) {
     bearerToken: options.bearerToken,
     store: options.store,
     slack: options.slack,
+    runtimeErrors: options.runtimeErrors,
+    env: options.env,
   });
 
   const server = Bun.serve({
@@ -57,4 +76,10 @@ export async function startServer(options: StartServerOptions) {
 }
 
 export type { SlackFetch };
-export { createIngestHandler, createMemoryStore, createSlackNotifier };
+export {
+  createIngestHandler,
+  createMemoryStore,
+  createSlackNotifier,
+  createNoopRuntimeErrorAlerter,
+  createRuntimeErrorAlerter,
+};
