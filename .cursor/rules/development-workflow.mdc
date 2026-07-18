@@ -48,4 +48,5 @@ Only after feature-green. Refactor commits change structure only — no new beha
 |---------|--------|
 | k3s / Postgres / Temporal down | `./scripts/k3s-local-up.sh` + local overlay |
 | Staged too much | `git restore --staged <paths>` |
+| Staging/prod deploy wrong / old image | Fix **git** pin + Argo Sync — never `kubectl set image` (`no-manual-cluster-mutation.mdc`) |
 | Live e2e auth fail | renew session (`import-chrome-session` / `renew`), then retry |

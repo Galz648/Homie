@@ -18,8 +18,12 @@ env via one-off kubectl/API/Dashboard edits without updating the source file.
    - `infra/k3s/overlays/{local,staging,production}/` — lane ConfigMaps / secrets examples
    - `infra/terraform/stacks/k3s/` — droplet / volumes
    - Homie secret groups stay out of band (`~/.config/homie/`, gitignored overlay secrets)
-2. Apply workloads: `kubectl apply -k infra/k3s/overlays/<lane>` (after image build/import as needed).
-3. Commit the IaC change before applying (or in the same PR).
+2. **Commit and push**, then apply:
+   - **local:** `kubectl apply -k infra/k3s/overlays/local`
+   - **staging / production:** Argo CD Sync of the workloads Application — **not**
+     `kubectl apply -k` or live `kubectl set env` / `edit` (see
+     `no-manual-cluster-mutation.mdc`)
+3. Commit the IaC change before Sync (or in the same PR).
 
 Operator map: `infra/README.md`, `infra/SPEC.md`, `docs/workstreams.md` (W2).
 
