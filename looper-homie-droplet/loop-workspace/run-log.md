@@ -23,3 +23,9 @@
 - group A+B packages merged; worktrees cleaned
 - PARALLEL-REPORT written
 - blocker for full delivery_gate: droplet not provisioned yet (operator TF)
+
+## delivery-2
+
+- monitoring/argocd/argo up on droplet
+- facebook-mock + staging CI Workflow Succeeded
+- awaiting operator-signoff (+ optional github-ci-read for poller)

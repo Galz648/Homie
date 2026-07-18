@@ -1,10 +1,18 @@
 {
-  "stage": "scaffolding_merged",
-  "iteration": 2,
-  "last_gate": "plan_gate",
-  "delivery": "delivery-1",
+  "stage": "delivery_gate_awaiting_signoff",
+  "iteration": 4,
+  "last_gate": "delivery_gate",
+  "delivery": "delivery-2",
   "root_branch": "feat/homie-do-droplet",
-  "root_sha": "24b7a59",
-  "notes": "All 5 packages merged; droplet apply still pending operator",
-  "updated": "2026-07-18T11:32:48.266525+00:00"
+  "notes": "Platform up; staging CI Succeeded manually. Poller needs github-ci-read. Awaiting operator-signoff.",
+  "checks": {
+    "droplet_in_project": "pass",
+    "k3s_ready": "pass",
+    "platform_up": "pass",
+    "staging_ci_tree": "pass",
+    "staging_ci_smoke": "pass",
+    "no_gha_kubeconfig_ci": "pass",
+    "operator_signoff": "pending"
+  },
+  "updated": "2026-07-18T12:22:01.195142+00:00"
 }
