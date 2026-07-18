@@ -26,9 +26,11 @@ approval; do not rely on one-off NodePort rules (e.g. 31212).
 ## Staging ingest
 
 `infra/k3s/overlays/staging/ingress-homie-ingest.yaml` routes `/` →
-`homie-ingest:8080`. Agent secret:
+`homie-ingest:8080`. Agent secret must use a **hostname** (CF Workers reject
+raw-IP fetch with error 1003):
 
 ```bash
-# http://<droplet-public-ip>  (port 80 via Traefik)
+# Prefer a real DNS A record later. Until then sslip.io works:
+#   HOMIE_INGEST_URL=http://164.92.193.255.sslip.io
 printf '%s' "$HOMIE_INGEST_URL" | npx wrangler secret put HOMIE_INGEST_URL
 ```

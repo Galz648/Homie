@@ -52,39 +52,54 @@ export class ListingExtractAgent extends Agent<Env> {
 
     if (result.listing) {
       const listing: HomieIngestBody = result.listing;
-      this.ctx.waitUntil(
-        (async () => {
+      // Await ingest on the request path. DO `waitUntil` is not reliably tied to
+      // the Worker response when using getAgentByName().fetch.
+      try {
+        const ingestHost = (() => {
           try {
-            const ingestResp = await postHomieIngest(this.env, listing);
-            if (!ingestResp.ok) {
-              const detail = await ingestResp.text().catch(() => "");
-              console.error(
-                JSON.stringify({
-                  level: "error",
-                  service: "listing-extract-agent",
-                  component: "ingest.callback",
-                  code: "dependency_failed",
-                  postId: listing.postId,
-                  status: ingestResp.status,
-                  message: detail.slice(0, 200),
-                }),
-              );
-            }
-          } catch (err) {
-            const message = err instanceof Error ? err.message : String(err);
-            console.error(
-              JSON.stringify({
-                level: "error",
-                service: "listing-extract-agent",
-                component: "ingest.callback",
-                code: "dependency_failed",
-                postId: listing.postId,
-                message,
-              }),
-            );
+            return new URL(this.env.HOMIE_INGEST_URL).host;
+          } catch {
+            return "(invalid HOMIE_INGEST_URL)";
           }
-        })(),
-      );
+        })();
+        console.log(
+          JSON.stringify({
+            level: "info",
+            service: "listing-extract-agent",
+            component: "ingest.callback",
+            code: "start",
+            postId: listing.postId,
+            ingestHost,
+          }),
+        );
+        const ingestResp = await postHomieIngest(this.env, listing);
+        if (!ingestResp.ok) {
+          const detail = await ingestResp.text().catch(() => "");
+          console.error(
+            JSON.stringify({
+              level: "error",
+              service: "listing-extract-agent",
+              component: "ingest.callback",
+              code: "dependency_failed",
+              postId: listing.postId,
+              status: ingestResp.status,
+              message: detail.slice(0, 200),
+            }),
+          );
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(
+          JSON.stringify({
+            level: "error",
+            service: "listing-extract-agent",
+            component: "ingest.callback",
+            code: "dependency_failed",
+            postId: listing.postId,
+            message,
+          }),
+        );
+      }
     }
 
     return json(result.status, result.body);

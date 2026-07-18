@@ -11,7 +11,8 @@
     "check:e2e-mocks": "bun test"
   },
   "dependencies": {
-    "agents": "^0.2.0"
+    "agents": "^0.2.0",
+    "ai": "^7.0.31"
   },
   "devDependencies": {
     "wrangler": "^4.112.0",
