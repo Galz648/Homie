@@ -110,6 +110,7 @@ export async function runScrapePipeline(
       sql,
       input.groupId,
       feed.posts,
+      { statePath: input.statePath },
     );
     const advance = upserted > 0 && newest != null;
     const possibleGap =

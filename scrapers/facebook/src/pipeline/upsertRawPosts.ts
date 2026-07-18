@@ -10,16 +10,20 @@ function titleFromText(text: string, postId: string): string {
 
 /**
  * Upsert scraped posts into raw_facebook_posts (dedupe by Facebook postId).
+ * `statePath` is forwarded for Spaces image downloads (authenticated CDN fetch).
  */
 export async function upsertScrapedPosts(
   sql: Sql,
   groupId: string,
   posts: ScrapedPost[],
+  opts: { statePath?: string } = {},
 ): Promise<{ upserted: number; newest: ScrapedPost | null }> {
   let upserted = 0;
 
   for (const post of posts) {
-    const images = await persistListingImages(post.imageUrls ?? []);
+    const images = await persistListingImages(post.imageUrls ?? [], {
+      statePath: opts.statePath,
+    });
     const title = titleFromText(post.text || "", post.postId);
     const description =
       post.text?.trim() ||

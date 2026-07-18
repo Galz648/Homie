@@ -16,6 +16,7 @@
     "check:pipeline": "tsx scripts/checkScrapePipeline.ts",
     "check:e2e-mocks": "tsx scripts/checkE2eMocks.ts",
     "check:e2e-online": "tsx scripts/checkE2eOnline.ts",
+    "check:image-fetch-online": "tsx scripts/checkImageFetchOnline.ts",
     "preprod:e2e-online": "tsx scripts/runE2eOnline.ts",
     "smoke:spaces-upload": "tsx scripts/smokeSpacesUpload.ts",
     "show:cursors": "tsx scripts/showScrapeCursors.ts"

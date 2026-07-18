@@ -16,8 +16,8 @@ patches:
   # Explicit image patch — ensures Argo desired state matches pin even if
   # images: transform is missed by a reconciler cache edge case.
   - path: patch-fb-scrape-worker-image.yaml
-# Zot — in-cluster build pins worker to staging-8233fdf (Argo OutOfSync until Sync).
+# Zot — in-cluster build pins worker to staging-989c1c4 (Argo OutOfSync until Sync).
 images:
   - name: fb-scrape-worker
     newName: zot.local:5000/homie/fb-scrape-worker
-    newTag: staging-8233fdf
+    newTag: staging-989c1c4
