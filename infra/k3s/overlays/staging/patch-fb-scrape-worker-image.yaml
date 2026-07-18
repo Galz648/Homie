@@ -1,0 +1,11 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fb-scrape-worker
+spec:
+  template:
+    spec:
+      containers:
+        - name: worker
+          # Keep in sync with kustomization.yaml images[].newTag (GitOps pin).
+          image: zot.local:5000/homie/fb-scrape-worker:staging-8233fdf

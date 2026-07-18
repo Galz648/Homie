@@ -13,6 +13,9 @@ patches:
   - path: patch-temporal-ui-svc-clusterip.yaml
   - path: patch-postgres-svc-clusterip.yaml
   - path: patch-scrape-db-migrate-env.yaml
+  # Explicit image patch — ensures Argo desired state matches pin even if
+  # images: transform is missed by a reconciler cache edge case.
+  - path: patch-fb-scrape-worker-image.yaml
 # Zot — in-cluster build pins worker to staging-8233fdf (Argo OutOfSync until Sync).
 images:
   - name: fb-scrape-worker
